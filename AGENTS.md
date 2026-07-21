@@ -154,6 +154,13 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
 
 ## Session log
 
+- **2026-07-21 (s6):** Supabase connector re-scoped by user; project
+  mupdltouvvagdwhgumry ("eldturinn app", eu-west-1) now accessible. Applied
+  tracked migration initial_schema_rls_and_seed via MCP: verified 58 players
+  (handicap+golfbox_id present), 5 rounds, RLS on. supabase-setup.sql now
+  matches deployed state; DB uses new-format keys (sb_publishable_/sb_secret_).
+  VITE vars confirmed to user for Workers Builds settings.
+
 - **2026-07-21 (s5):** Ya/ legacy folder removed. Pushed all commits to GitHub
   (PAT used inline, scrubbed after; user told to rotate). Cloudflare MCP
   connector enabled + verified (workers_list OK; no Pages tools). Fetched CF
