@@ -47,6 +47,9 @@ golf-signup/
 - `players(id, name unique, position, active, created_at)`
 - `rounds(id, title, course, round_date, tee_time, max_players nullable, notes, created_at)`
 - `signups(id, round_id fk cascade, player_id fk cascade, created_at, unique(round_id, player_id))`
+- `scores(id, round_id fk, player_id fk, points int >=0, position int null, unique(round_id, player_id))`
+  Tournament rule: winner = highest SUM OF BEST 3 round scores (of 5), Stableford.
+  Tiebreak in UI: best single round. Migration: scores_table_and_round2_hella.
 - RLS enabled on all tables, policies are fully open (read+write for anon).
   Acceptable for private club link; Supabase Auth is the upgrade path if admin
   page needs locking.
@@ -153,6 +156,18 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
 4. Consider: lock admin page (Supabase Auth) if link leaks
 
 ## Session log
+
+- **2026-07-21 (s7):** Round 2 (Hella, GK Hellu — course corrected from Korpa)
+  scores entered from Golf GameBook screenshots: 16 players matched+inserted,
+  positions 9-25. MISSING: positions 1-8 (screenshots didn't include) and
+  "Árni Odds" (15 pts, pos 21) unmatched to any DB player — ask user. Built:
+  scores table, Stigatafla view (best-3-of-5 totals, counted rounds
+  highlighted, leader crowned), ScoresAdmin (per-round entry, empty=delete).
+  GameBook name aliases used for matching: Oliver O=Óliver Ormar, Magnús
+  Kristófersson=Magnús Jón K., Jón Heiðar=Jón H., Eyjó Tómasson=Eyjólfur
+  Tómedic, Kristófer Beck=Bekk, erling hugi másson=Erling Hugi, Johanna
+  Johannsdottir=Jóhanna Guðrún, Viktor Sigursson=Viktor retireee,
+  Sigurjón Ingi Sveinsson=Sigurjón Ingi.
 
 - **2026-07-21 (s6):** Supabase connector re-scoped by user; project
   mupdltouvvagdwhgumry ("eldturinn app", eu-west-1) now accessible. Applied

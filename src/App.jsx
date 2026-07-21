@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, configured } from './supabase'
 import PlayersAdmin from './PlayersAdmin'
+import ScoresAdmin from './ScoresAdmin'
+import Standings from './Standings'
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maí', 'jún', 'júl', 'ágú', 'sep', 'okt', 'nóv', 'des']
 const DAYS = ['Sunnudagur', 'Mánudagur', 'Þriðjudagur', 'Miðvikudagur', 'Fimmtudagur', 'Föstudagur', 'Laugardagur']
@@ -25,6 +27,7 @@ export default function App() {
   const [players, setPlayers] = useState([])
   const [rounds, setRounds] = useState([])
   const [signups, setSignups] = useState([])
+  const [scores, setScores] = useState([])
   const [me, setMe] = useState(() => localStorage.getItem('shs_player_id') || '')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -32,14 +35,15 @@ export default function App() {
   const load = useCallback(async () => {
     if (!configured) { setLoading(false); return }
     setError('')
-    const [p, r, s] = await Promise.all([
+    const [p, r, s, sc] = await Promise.all([
       supabase.from('players').select('*').eq('active', true).order('name'),
       supabase.from('rounds').select('*').order('round_date'),
       supabase.from('signups').select('*'),
+      supabase.from('scores').select('*'),
     ])
-    const err = p.error || r.error || s.error
+    const err = p.error || r.error || s.error || sc.error
     if (err) { setError(err.message); setLoading(false); return }
-    setPlayers(p.data); setRounds(r.data); setSignups(s.data)
+    setPlayers(p.data); setRounds(r.data); setSignups(s.data); setScores(sc.data)
     setLoading(false)
   }, [])
 
@@ -55,10 +59,14 @@ export default function App() {
   return (
     <Shell view={view} setView={setView}>
       {error && <p className="status error">Villa: {error} <button className="link" onClick={load}>Reyna aftur</button></p>}
-      {view === 'rounds' ? (
+      {view === 'rounds' && (
         <RoundsView players={players} rounds={rounds} signups={signups} me={me} setMe={setMe} reload={load} />
-      ) : (
-        <AdminView rounds={rounds} signups={signups} players={players} reload={load} />
+      )}
+      {view === 'standings' && (
+        <Standings players={players} rounds={rounds} scores={scores} />
+      )}
+      {view === 'admin' && (
+        <AdminView rounds={rounds} signups={signups} players={players} scores={scores} reload={load} />
       )}
     </Shell>
   )
@@ -78,6 +86,7 @@ function Shell({ view, setView, children }) {
           </div>
           <nav className="nav">
             <button className={view === 'rounds' ? 'nav-btn active' : 'nav-btn'} onClick={() => setView('rounds')}>Skráning</button>
+            <button className={view === 'standings' ? 'nav-btn active' : 'nav-btn'} onClick={() => setView('standings')}>Stigatafla</button>
             <button className={view === 'admin' ? 'nav-btn active' : 'nav-btn'} onClick={() => setView('admin')}>Hringir</button>
           </nav>
         </div>
@@ -189,7 +198,7 @@ function RoundsView({ players, rounds, signups, me, setMe, reload }) {
 
 const EMPTY = { title: '', course: '', round_date: '', tee_time: '', max_players: '', notes: '' }
 
-function AdminView({ rounds, signups, players, reload }) {
+function AdminView({ rounds, signups, players, scores, reload }) {
   const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -277,6 +286,8 @@ function AdminView({ rounds, signups, players, reload }) {
           ))}
         </ul>
       </section>
+
+      <ScoresAdmin players={players} rounds={rounds} scores={scores} reload={reload} />
 
       <PlayersAdmin players={players} reload={reload} />
     </>

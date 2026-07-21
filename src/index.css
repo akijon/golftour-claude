@@ -246,3 +246,31 @@ code { background: var(--cream); padding: 2px 6px; border-radius: 4px; font-size
   width: 110px; padding: 8px 10px; border: 1px solid var(--cream-line);
   border-radius: 8px; font: 500 0.95rem 'IBM Plex Sans', sans-serif; background: var(--cream);
 }
+
+/* ---- Standings table ---- */
+.rule-note { margin: 0 0 14px; font-size: 0.88rem; color: var(--muted); }
+.counted-demo { background: #dcefe2; border-radius: 4px; padding: 1px 6px; font-weight: 600; color: var(--fairway); }
+.table-scroll { overflow-x: auto; }
+.standings table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.standings th, .standings td { padding: 8px 10px; text-align: right; white-space: nowrap; }
+.standings th { font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 105, 'wght' 700;
+  text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.07em; color: var(--muted);
+  border-bottom: 2px solid var(--fairway); }
+.standings .pname { text-align: left; }
+.standings td.pname { font-weight: 600; }
+.standings tbody tr { border-bottom: 1px solid var(--cream-line); }
+.standings td.rnd.counted { background: #dcefe2; color: var(--fairway); font-weight: 700; }
+.standings td.total { font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 110, 'wght' 850; font-size: 1.05rem; }
+.standings tr.leader td { background: #fdf6e3; }
+.standings tr.leader td.pname::after { content: ' 🏆'; }
+
+/* ---- Score entry ---- */
+.sync-row select { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid var(--cream-line);
+  border-radius: 8px; font: 500 1rem 'IBM Plex Sans', sans-serif; background: var(--cream); }
+.score-grid { margin: 16px 0 0; padding: 0; list-style: none;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 18px; }
+.score-grid li { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  border-bottom: 1px dotted var(--cream-line); padding: 4px 0; }
+.score-grid .sname { font-size: 0.92rem; }
+.score-grid input { width: 58px; text-align: center; padding: 6px 8px; border: 1px solid var(--cream-line);
+  border-radius: 8px; font: 600 1rem 'IBM Plex Sans', sans-serif; background: var(--cream); }
