@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && wrangler pages functions build --outdir=./dist/_worker.js/",
+    "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },

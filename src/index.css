@@ -274,3 +274,12 @@ code { background: var(--cream); padding: 2px 6px; border-radius: 4px; font-size
 .score-grid .sname { font-size: 0.92rem; }
 .score-grid input { width: 58px; text-align: center; padding: 6px 8px; border: 1px solid var(--cream-line);
   border-radius: 8px; font: 600 1rem 'IBM Plex Sans', sans-serif; background: var(--cream); }
+
+/* ---- Auth ---- */
+.admin-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  background: var(--white); border: 1px solid var(--cream-line); border-radius: var(--radius);
+  padding: 10px 16px; margin-bottom: 20px; font-size: 0.9rem; }
+.login-form { display: flex; gap: 10px; flex-wrap: wrap; }
+.login-form input { flex: 1; min-width: 200px; padding: 10px 12px; border: 1px solid var(--cream-line);
+  border-radius: 8px; font: 500 1rem 'IBM Plex Sans', sans-serif; background: var(--cream); }
+.login-form .cta { margin: 0; }

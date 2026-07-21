@@ -297,48 +297,48 @@ function AdminView({ rounds, signups, players, scores, reload }) {
 }
 
 function AdminGate({ children }) {
-  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('shs_admin') === '1')
-  const [pin, setPin] = useState('')
+  const [session, setSession] = useState(undefined) // undefined = loading
+  const [email, setEmail] = useState('')
+  const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
-  async function submit() {
-    if (!pin) return
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  async function login() {
     setBusy(true); setMsg('')
-    try {
-      const res = await fetch('/api/admin-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data.ok) {
-        sessionStorage.setItem('shs_admin', '1')
-        setUnlocked(true)
-      } else {
-        setMsg(data.error === 'ADMIN_PIN not configured'
-          ? 'ADMIN_PIN vantar í Cloudflare stillingar.'
-          : 'Rangt lykilorð.')
-      }
-    } catch (e) {
-      setMsg('Netvilla: ' + e.message)
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
     setBusy(false)
+    if (error) setMsg('Innskráning mistókst: ' + error.message)
   }
 
-  if (unlocked) return children
+  if (session === undefined) return <p className="status">Athuga aðgang…</p>
+  if (session) {
+    return (
+      <>
+        <div className="admin-bar">
+          <span>Innskráð: <b>{session.user.email}</b></span>
+          <button className="link" onClick={() => supabase.auth.signOut()}>Útskrá</button>
+        </div>
+        {children}
+      </>
+    )
+  }
   return (
     <section className="panel gate">
       <h2 className="panel-title">Aðgangur stjórnanda</h2>
-      <p>Hringir-síðan er læst. Sláðu inn lykilorð stjórnanda.</p>
-      <div className="sync-row">
-        <input
-          type="password" value={pin} placeholder="Lykilorð"
-          onChange={e => setPin(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && submit()}
-          aria-label="Lykilorð stjórnanda"
-        />
-        <button className="cta" disabled={busy || !pin} onClick={submit}>{busy ? '…' : 'Opna'}</button>
+      <p>Hringir-síðan er læst. Skráðu þig inn.</p>
+      <div className="login-form">
+        <input type="email" value={email} placeholder="Netfang" autoComplete="username"
+          onChange={e => setEmail(e.target.value)} aria-label="Netfang" />
+        <input type="password" value={pw} placeholder="Lykilorð" autoComplete="current-password"
+          onChange={e => setPw(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && login()} aria-label="Lykilorð" />
+        <button className="cta" disabled={busy || !email || !pw} onClick={login}>{busy ? '…' : 'Innskrá'}</button>
       </div>
       {msg && <p className="status error" style={{ marginTop: 10 }}>{msg}</p>}
     </section>

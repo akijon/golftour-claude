@@ -50,9 +50,13 @@ golf-signup/
 - `scores(id, round_id fk, player_id fk, points int >=0, position int null, unique(round_id, player_id))`
   Tournament rule: winner = highest SUM OF BEST 3 round scores (of 5), Stableford.
   Tiebreak in UI: best single round. Migration: scores_table_and_round2_hella.
-- RLS enabled on all tables, policies are fully open (read+write for anon).
-  Acceptable for private club link; Supabase Auth is the upgrade path if admin
-  page needs locking.
+- RLS (since migration auth_rls_lockdown, 2026-07-21):
+  READS public on all tables. signups INSERT+DELETE public (self-signup by
+  design, no accounts). players/rounds/scores WRITES require Supabase Auth
+  (role authenticated). Admin login = email/password user created in
+  Supabase Dashboard -> Authentication. IMPORTANT: public signups must be
+  DISABLED in Supabase Auth settings, else anyone can register and gain
+  write access.
 
 ## ✅ Schema change DONE (2026-07-21)
 
@@ -164,13 +168,21 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
 
 ## Session log
 
+- **2026-07-21 (s11):** REAL auth: migration auth_rls_lockdown (writes on
+  players/rounds/scores -> authenticated only; reads + signup insert/delete
+  stay public). AdminGate rewritten to Supabase Auth email/password
+  (signInWithPassword, session via onAuthStateChange, logout in admin bar).
+  /api/admin-login DELETED; functions/ gone; wrangler.jsonc now assets-only
+  (no main worker, no run_worker_first); build back to plain `vite build`.
+  No Worker secrets needed at all. USER MUST: 1) Supabase Dashboard ->
+  Authentication -> Add user (email+pw), 2) disable public signups in Auth
+  providers settings, 3) may delete ADMIN_PIN + all other Worker secrets.
+
 - **2026-07-21 (s10):** GolfBox integration REMOVED (functions/api/
   sync-handicaps.js, functions/lib/golfbox.js, sync UI). Added admin gate:
   functions/api/admin-login.js (POST, checks ADMIN_PIN Worker secret,
   explicit CORS + OPTIONS preflight), AdminGate component wraps Hringir view,
-  unlock stored in sessionStorage per tab. NOTE: UI gate only — RLS still
-  open; Supabase Auth remains the real-security upgrade path. User must:
-  add ADMIN_PIN secret, may delete the five obsolete secrets.
+  unlock stored in sessionStorage per tab. (Superseded by s11 same day.)
 
 - **2026-07-21 (s9):** All three played rounds now fully scored from GameBook
   screenshots: H1 "Moooosó" Hlíðavöllur/GM 23 scores (course corrected from
