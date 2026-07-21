@@ -108,18 +108,43 @@ credentials.
 
 ## Deploy recap
 
-Supabase: run `supabase-setup.sql` once in SQL Editor.
-Cloudflare Pages: connect GitHub repo, Vite preset, output `dist`, set
-`VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` env vars.
+Supabase: run `supabase-setup.sql` once in SQL Editor (existing DBs: also
+`migrations-001-handicap.sql`).
+
+Cloudflare Pages (config-as-code in `wrangler.toml`; project creation is
+dashboard-only — the account's bindings MCP has no Pages tools, verified
+2026-07-21):
+1. dash.cloudflare.com -> Workers & Pages -> Create -> Pages -> Connect to Git
+   -> akijon/golftour-claude. Build command `npm run build`; output dir comes
+   from wrangler.toml (`./dist`), name `golftour-claude`.
+2. Settings -> Variables and Secrets:
+   Secrets (Prod+Preview): GOLFBOX_USER, GOLFBOX_PASS, SYNC_TOKEN,
+   SUPABASE_URL, SUPABASE_SERVICE_KEY
+   Plaintext: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+3. Every push to main = production deploy. functions/ dir auto-becomes Pages
+   Functions (/api/sync-handicaps).
+
+NOTE: Cloudflare now recommends Workers static assets for NEW projects and
+provides a Pages->Workers migration path (MCP tool
+migrate_pages_to_workers_guide exists). Staying on Pages deliberately:
+functions/ file-routing is Pages-native and fully supported. Revisit only if
+Pages deprecation is announced.
 
 ## Next steps
 
-1. User pushes/provides PAT -> push to github.com/akijon/golftour-claude
-2. User sets 5 CF secrets, runs migrations-001 in Supabase
+1. User: create Pages project in dashboard (see Deploy recap), set secrets
+2. User: run migrations-001 in Supabase; ROTATE the GitHub PAT (was pasted in chat)
 3. First live sync run -> read failure diagnostics -> fix functions/lib/golfbox.js
 4. Consider: lock admin page (Supabase Auth) if link leaks
 
 ## Session log
+
+- **2026-07-21 (s5):** Ya/ legacy folder removed. Pushed all commits to GitHub
+  (PAT used inline, scrubbed after; user told to rotate). Cloudflare MCP
+  connector enabled + verified (workers_list OK; no Pages tools). Fetched CF
+  agent-setup doc (targets Claude Code/local agents; N/A in chat UI). Docs
+  research: Workers static assets is CF's new-project recommendation; staying
+  on Pages. Added wrangler.toml (Pages config-as-code).
 
 - **2026-07-15 (s1):** Misread brief as EMS training app; corrected. Built full
   signup app from Excel (58 players), schema, seed SQL, Icelandic UI, delivered
