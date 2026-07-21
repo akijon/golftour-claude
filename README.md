@@ -2,7 +2,9 @@
 
 **Vefslóð:** https://eldturinn.khalipa.net
 
-Skráningarapp fyrir 5 golfhringi sumarsins. React + Vite + Supabase, hýst á Cloudflare Pages.
+Skráningarapp fyrir 5 golfhringi sumarsins.
+
+**Vefslóð:** https://eldturinn.khalipa.net React + Vite + Supabase, hýst á Cloudflare Pages.
 
 ## Uppsetning (einu sinni)
 

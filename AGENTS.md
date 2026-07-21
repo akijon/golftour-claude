@@ -13,6 +13,7 @@ creating, editing, and removing rounds.
 - **Production URL:** https://eldturinn.khalipa.net (custom domain on the
   golftour-claude Pages project; pages.dev fallback: golftour-claude.pages.dev)
 - **UI language:** Icelandic
+- **Production URL:** https://eldturinn.khalipa.net (Pages custom domain; pages.dev name: golftour-claude)
 - **Player source of truth:** `golfhopur-2026-uppfært-19_5_2026.xlsx` (58 players, name + position)
 
 ## Stack
@@ -135,6 +136,10 @@ Pages deprecation is announced.
 ## Next steps
 
 1. User: create Pages project in dashboard (see Deploy recap), set secrets,
+   attach custom domain eldturinn.khalipa.net (CNAME auto if khalipa.net zone
+   is in same CF account; else manual CNAME -> golftour-claude.pages.dev).
+   ALT: user adds https://mcp.cloudflare.com/mcp as custom connector in
+   claude.ai -> may expose Pages/DNS tools so agent can do this itself.,
    attach custom domain eldturinn.khalipa.net (Custom domains tab; CNAME
    auto-created if khalipa.net zone is in same CF account)
 2. User: run migrations-001 in Supabase; ROTATE the GitHub PAT (was pasted in chat)
