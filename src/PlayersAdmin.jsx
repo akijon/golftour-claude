@@ -3,10 +3,7 @@ import { supabase } from './supabase'
 
 export default function PlayersAdmin({ players, reload }) {
   const [edit, setEdit] = useState(null) // { id, handicap, golfbox_id }
-  const [syncing, setSyncing] = useState(false)
-  const [syncMsg, setSyncMsg] = useState('')
-  const [syncResults, setSyncResults] = useState(null)
-  const [token, setToken] = useState(() => localStorage.getItem('shs_sync_token') || '')
+  const [msg, setMsg] = useState('')
 
   async function save() {
     const patch = {
@@ -14,58 +11,16 @@ export default function PlayersAdmin({ players, reload }) {
       golfbox_id: edit.golfbox_id.trim() || null,
     }
     const { error } = await supabase.from('players').update(patch).eq('id', edit.id)
-    if (error) { setSyncMsg('Villa: ' + error.message); return }
+    if (error) { setMsg('Villa: ' + error.message); return }
     setEdit(null)
     await reload()
-  }
-
-  async function sync() {
-    if (!token) { setSyncMsg('Settu inn sync-lykil fyrst (SYNC_TOKEN úr Cloudflare).'); return }
-    localStorage.setItem('shs_sync_token', token)
-    setSyncing(true); setSyncMsg(''); setSyncResults(null)
-    try {
-      const res = await fetch('/api/sync-handicaps', {
-        method: 'POST',
-        headers: { 'X-Sync-Token': token },
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setSyncMsg(`Samstilling mistókst: ${data.error}${data.detail ? ' — ' + data.detail : ''}`)
-      } else {
-        setSyncMsg(`Samstillt: ${data.synced} af ${data.total} leikmönnum uppfærðir.`)
-        setSyncResults(data.results.filter(r => r.status !== 'ok'))
-        await reload()
-      }
-    } catch (e) {
-      setSyncMsg('Netvilla: ' + e.message)
-    }
-    setSyncing(false)
   }
 
   return (
     <section className="panel">
       <h2 className="panel-title">Leikmenn &amp; forgjöf</h2>
 
-      <div className="sync-row">
-        <input
-          type="password"
-          placeholder="Sync-lykill"
-          value={token}
-          onChange={e => setToken(e.target.value)}
-          aria-label="Sync-lykill"
-        />
-        <button className="cta" disabled={syncing} onClick={sync}>
-          {syncing ? 'Sæki frá GolfBox…' : 'Sækja forgjafir frá GolfBox'}
-        </button>
-      </div>
-      {syncMsg && <p className="status" style={{ marginTop: 10 }}>{syncMsg}</p>}
-      {syncResults && syncResults.length > 0 && (
-        <details className="sync-details">
-          <summary>{syncResults.length} fundust ekki / villur</summary>
-          <ul>{syncResults.map(r => <li key={r.id}><b>{r.name}</b>: {r.status} <small>{r.detail}</small></li>)}</ul>
-        </details>
-      )}
-
+      {msg && <p className="status error">{msg}</p>}
       <ul className="admin-list players">
         {players.map(p => (
           <li key={p.id}>

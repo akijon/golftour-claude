@@ -62,7 +62,14 @@ Players table now has `handicap numeric(4,1)` and `golfbox_id text`.
 - UI shows handicap ("fgj", Icelandic decimal comma) in dropdown, selected-player
   badge, and round rosters. Null handicap = hidden, no placeholder.
 
-## 🔴 OPEN TODO: Golfbox / GSÍ handicap integration
+## ❌ REMOVED (2026-07-21): Golfbox / GSÍ handicap integration
+
+Scraper adapter never worked reliably against real GolfBox; user ordered
+removal. Handicap + golfbox_id columns and manual editing in PlayersAdmin
+REMAIN. Handicaps maintained via CSV imports or manual edits. If revisited,
+history below still applies.
+
+## (historical) Golfbox / GSÍ handicap integration
 
 User wants handicaps fetched from the Icelandic Golf Association via
 **golfbox.dk** (GSÍ uses GolfBox as its national system). User can provide
@@ -97,8 +104,8 @@ credentials.
 - `functions/lib/golfbox.js` — isolated adapter (login, search, parse).
   ⚠️ UNVERIFIED: endpoints/regexes are best-effort; first authenticated run
   will 502 with diagnostics if wrong. Fix ONLY this file when that happens.
-- CF Pages secrets needed: GOLFBOX_USER, GOLFBOX_PASS, SYNC_TOKEN,
-  SUPABASE_URL, SUPABASE_SERVICE_KEY. Never VITE_*.
+- (obsolete) secrets GOLFBOX_USER/GOLFBOX_PASS/SYNC_TOKEN/SUPABASE_URL/
+  SUPABASE_SERVICE_KEY can be DELETED from the Worker. New secret: ADMIN_PIN.
 - UI: PlayersAdmin section on Hringir page — manual inline edit of
   handicap/golfbox_id (works today regardless of scraper), sync button with
   token field (token cached in localStorage), per-player failure report.
@@ -156,6 +163,14 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
 4. Consider: lock admin page (Supabase Auth) if link leaks
 
 ## Session log
+
+- **2026-07-21 (s10):** GolfBox integration REMOVED (functions/api/
+  sync-handicaps.js, functions/lib/golfbox.js, sync UI). Added admin gate:
+  functions/api/admin-login.js (POST, checks ADMIN_PIN Worker secret,
+  explicit CORS + OPTIONS preflight), AdminGate component wraps Hringir view,
+  unlock stored in sessionStorage per tab. NOTE: UI gate only — RLS still
+  open; Supabase Auth remains the real-security upgrade path. User must:
+  add ADMIN_PIN secret, may delete the five obsolete secrets.
 
 - **2026-07-21 (s9):** All three played rounds now fully scored from GameBook
   screenshots: H1 "Moooosó" Hlíðavöllur/GM 23 scores (course corrected from

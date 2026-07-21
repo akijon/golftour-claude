@@ -66,7 +66,9 @@ export default function App() {
         <Standings players={players} rounds={rounds} scores={scores} />
       )}
       {view === 'admin' && (
-        <AdminView rounds={rounds} signups={signups} players={players} scores={scores} reload={load} />
+        <AdminGate>
+          <AdminView rounds={rounds} signups={signups} players={players} scores={scores} reload={load} />
+        </AdminGate>
       )}
     </Shell>
   )
@@ -291,6 +293,55 @@ function AdminView({ rounds, signups, players, scores, reload }) {
 
       <PlayersAdmin players={players} reload={reload} />
     </>
+  )
+}
+
+function AdminGate({ children }) {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('shs_admin') === '1')
+  const [pin, setPin] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  async function submit() {
+    if (!pin) return
+    setBusy(true); setMsg('')
+    try {
+      const res = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.ok) {
+        sessionStorage.setItem('shs_admin', '1')
+        setUnlocked(true)
+      } else {
+        setMsg(data.error === 'ADMIN_PIN not configured'
+          ? 'ADMIN_PIN vantar í Cloudflare stillingar.'
+          : 'Rangt lykilorð.')
+      }
+    } catch (e) {
+      setMsg('Netvilla: ' + e.message)
+    }
+    setBusy(false)
+  }
+
+  if (unlocked) return children
+  return (
+    <section className="panel gate">
+      <h2 className="panel-title">Aðgangur stjórnanda</h2>
+      <p>Hringir-síðan er læst. Sláðu inn lykilorð stjórnanda.</p>
+      <div className="sync-row">
+        <input
+          type="password" value={pin} placeholder="Lykilorð"
+          onChange={e => setPin(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && submit()}
+          aria-label="Lykilorð stjórnanda"
+        />
+        <button className="cta" disabled={busy || !pin} onClick={submit}>{busy ? '…' : 'Opna'}</button>
+      </div>
+      {msg && <p className="status error" style={{ marginTop: 10 }}>{msg}</p>}
+    </section>
   )
 }
 
