@@ -7,6 +7,8 @@ create table players (
   id bigint generated always as identity primary key,
   name text not null unique,
   position text not null default '',
+  handicap numeric(4,1),
+  golfbox_id text,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );

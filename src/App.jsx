@@ -15,6 +15,9 @@ function fmtTime(t) {
 function isPast(d) {
   return new Date(d + 'T23:59:59') < new Date()
 }
+function fmtHcp(h) {
+  return h === null || h === undefined ? null : Number(h).toFixed(1).replace('.', ',')
+}
 
 export default function App() {
   const [view, setView] = useState('rounds') // 'rounds' | 'admin'
@@ -108,9 +111,18 @@ function RoundsView({ players, rounds, signups, me, setMe, reload }) {
         <label htmlFor="who">Hver ert þú?</label>
         <select id="who" value={me} onChange={e => setMe(e.target.value)}>
           <option value="">— Veldu nafnið þitt —</option>
-          {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {players.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.name}{fmtHcp(p.handicap) !== null ? ` — fgj ${fmtHcp(p.handicap)}` : ''}
+            </option>
+          ))}
         </select>
-        {mePlayer && <span className="who-pos">{mePlayer.position}</span>}
+        {mePlayer && (
+          <span className="who-pos">
+            {mePlayer.position}
+            {fmtHcp(mePlayer.handicap) !== null && <b className="hcp-badge">Fgj. {fmtHcp(mePlayer.handicap)}</b>}
+          </span>
+        )}
       </section>
 
       {rounds.length === 0 && <p className="status">Engir hringir skráðir enn. Bættu við á „Hringir“ síðunni.</p>}
@@ -143,7 +155,12 @@ function RoundsView({ players, rounds, signups, me, setMe, reload }) {
                   <ul>
                     {list.map(s => {
                       const p = players.find(pl => pl.id === s.player_id)
-                      return p ? <li key={s.id}>{p.name}</li> : null
+                      return p ? (
+                        <li key={s.id}>
+                          {p.name}
+                          {fmtHcp(p.handicap) !== null && <span className="hcp">{fmtHcp(p.handicap)}</span>}
+                        </li>
+                      ) : null
                     })}
                   </ul>
                   {list.length === 0 && <p className="empty">Enginn skráður enn — vertu fyrst(ur)!</p>}

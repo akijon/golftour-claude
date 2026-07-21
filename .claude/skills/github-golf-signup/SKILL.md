@@ -13,7 +13,7 @@ and open TODOs. Update its Session log before the final commit of a session.
 ## Repo state
 
 - Local git repo lives at project root; default branch: `main`.
-- Remote: GitHub, repo URL provided by Aki (not yet configured — ask if absent:
+- Remote: https://github.com/akijon/golftour-claude (configure if absent:
   `git remote -v`).
 - Sandbox network allows `github.com` and `api.github.com`, so push works with
   an HTTPS token remote.

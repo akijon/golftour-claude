@@ -48,17 +48,13 @@ golf-signup/
   Acceptable for private club link; Supabase Auth is the upgrade path if admin
   page needs locking.
 
-## ⚠️ PENDING schema change (agreed, NOT yet implemented)
+## ✅ Schema change DONE (2026-07-21)
 
-Players table must gain:
-
-```sql
-alter table players add column handicap numeric(4,1);
-alter table players add column golfbox_id text;
-```
-
-Reflect these in: `supabase-setup.sql`, the player dropdown/roster UI in
-`App.jsx` (show handicap next to name), and possibly a players admin section.
+Players table now has `handicap numeric(4,1)` and `golfbox_id text`.
+- New installs: in `supabase-setup.sql`
+- Existing DBs: run `migrations-001-handicap.sql`
+- UI shows handicap ("fgj", Icelandic decimal comma) in dropdown, selected-player
+  badge, and round rosters. Null handicap = hidden, no placeholder.
 
 ## 🔴 OPEN TODO: Golfbox / GSÍ handicap integration
 
@@ -66,11 +62,14 @@ User wants handicaps fetched from the Icelandic Golf Association via
 **golfbox.dk** (GSÍ uses GolfBox as its national system). User can provide
 credentials.
 
-**Blocked on user answers (asked, not yet answered):**
-1. Sync frequency — automatic (nightly/on-load) vs manual "refresh" button?
-2. Does user already have each player's GolfBox ID, or must players be looked
-   up by name first?
-3. Credential type — personal golfbox.dk login vs club-admin/API credentials?
+**User answers (2026-07-21):**
+1. Sync frequency: **MANUAL** — a "refresh handicaps" action, no cron needed.
+2. GolfBox IDs: **not known** — look players up **by name** on GolfBox/golf.is,
+   store resulting golfbox_id, then fetch handicap by id on refresh.
+3. Credentials: **personal golfbox.dk login** (not API/club-admin). User will
+   provide when integration is built. Personal login → almost certainly a
+   scraping/session approach, must run server-side (Supabase Edge Function or
+   Cloudflare Pages Function), secrets in platform secret store only.
 
 **Implementation notes for whoever picks this up:**
 - GolfBox has no public REST API for handicaps; options to research: GolfBox
@@ -104,6 +103,9 @@ Cloudflare Pages: connect GitHub repo, Vite preset, output `dist`, set
 - **2026-07-15 (s1):** Misread brief as EMS training app; corrected. Built full
   signup app from Excel (58 players), schema, seed SQL, Icelandic UI, delivered
   zip. Design: fairway green / cream / flag red, Archivo display type.
+- **2026-07-21 (s3):** Handicap + golfbox_id columns added (schema, migration,
+  UI). GitHub remote known: https://github.com/akijon/golftour-claude — push
+  pending PAT from user. GolfBox questions answered; integration still TODO.
 - **2026-07-15 (s2):** User requested handicap + golfbox_id columns and GSÍ
   handicap fetch. Clarifying questions asked (see OPEN TODO). AGENTS.md created,
   git repo initialized, committed locally. GitHub push pending user repo/token.

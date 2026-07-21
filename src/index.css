@@ -216,3 +216,15 @@ code { background: var(--cream); padding: 2px 6px; border-radius: 4px; font-size
   .card-when { text-align: left; }
   .cta { width: calc(100% - 40px); }
 }
+
+/* ---- Handicap display ---- */
+.roster li { display: flex; justify-content: space-between; gap: 8px; }
+.roster li .hcp {
+  font-variant-numeric: tabular-nums;
+  color: var(--fairway); font-weight: 600; font-size: 0.85rem;
+}
+.hcp-badge {
+  margin-left: 8px; font-style: normal;
+  background: var(--fairway); color: var(--white);
+  padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;
+}
