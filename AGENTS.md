@@ -157,6 +157,17 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
 
 ## Session log
 
+- **2026-07-21 (s8):** User-provided merged CSV (Name,GolfboxID,Handicap,Sex)
+  applied via MCP: all 58 players got handicap; 35 got real golfbox_id.
+  Placeholder IDs "11111"/"1111" SKIPPED (not written). hcp 24.0 = club
+  default for unknowns (28.0 Jóhanna). CSV aliases: Viktor Rúnar=Viktor
+  retireee, Kristmundur Carter=Carter, Sigurjón Ingi Sveinsson=Sigurjón Ingi.
+  UNRESOLVED: duplicate golfbox_ids in CSV written as-is, user must fix one
+  of each pair: 9-386 (Árni Sig/Bjarni Ingim), 1-1453 (Jón H./Jón Reynir),
+  1-1401 (Svavar/Sævar Sigf), 2-1285 (Sævar Dór/Ævar Örn). CSV-only player
+  Ólafur Halldór Torfason NOT added (not in club list; ask user). "Árni Odds"
+  from round-2 scores still unmatched.
+
 - **2026-07-21 (s7):** Round 2 (Hella, GK Hellu — course corrected from Korpa)
   scores entered from Golf GameBook screenshots: 16 players matched+inserted,
   positions 9-25. MISSING: positions 1-8 (screenshots didn't include) and
