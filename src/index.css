@@ -228,3 +228,21 @@ code { background: var(--cream); padding: 2px 6px; border-radius: 4px; font-size
   background: var(--fairway); color: var(--white);
   padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;
 }
+
+/* ---- Players admin & sync ---- */
+.sync-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.sync-row input {
+  flex: 1; min-width: 180px; padding: 10px 12px;
+  border: 1px solid var(--cream-line); border-radius: 8px;
+  font: 500 1rem 'IBM Plex Sans', sans-serif; background: var(--cream);
+}
+.sync-row .cta { margin: 0; }
+.sync-details { margin-top: 10px; font-size: 0.88rem; }
+.sync-details small { color: var(--muted); display: block; }
+.admin-list.players { margin-top: 18px; max-height: 480px; overflow-y: auto; }
+.player-edit { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.player-edit label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.player-edit input {
+  width: 110px; padding: 8px 10px; border: 1px solid var(--cream-line);
+  border-radius: 8px; font: 500 0.95rem 'IBM Plex Sans', sans-serif; background: var(--cream);
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, configured } from './supabase'
+import PlayersAdmin from './PlayersAdmin'
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maí', 'jún', 'júl', 'ágú', 'sep', 'okt', 'nóv', 'des']
 const DAYS = ['Sunnudagur', 'Mánudagur', 'Þriðjudagur', 'Miðvikudagur', 'Fimmtudagur', 'Föstudagur', 'Laugardagur']
@@ -57,7 +58,7 @@ export default function App() {
       {view === 'rounds' ? (
         <RoundsView players={players} rounds={rounds} signups={signups} me={me} setMe={setMe} reload={load} />
       ) : (
-        <AdminView rounds={rounds} signups={signups} reload={load} />
+        <AdminView rounds={rounds} signups={signups} players={players} reload={load} />
       )}
     </Shell>
   )
@@ -188,7 +189,7 @@ function RoundsView({ players, rounds, signups, me, setMe, reload }) {
 
 const EMPTY = { title: '', course: '', round_date: '', tee_time: '', max_players: '', notes: '' }
 
-function AdminView({ rounds, signups, reload }) {
+function AdminView({ rounds, signups, players, reload }) {
   const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -276,6 +277,8 @@ function AdminView({ rounds, signups, reload }) {
           ))}
         </ul>
       </section>
+
+      <PlayersAdmin players={players} reload={reload} />
     </>
   )
 }

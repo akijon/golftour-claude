@@ -71,17 +71,31 @@ credentials.
    scraping/session approach, must run server-side (Supabase Edge Function or
    Cloudflare Pages Function), secrets in platform secret store only.
 
-**Implementation notes for whoever picks this up:**
-- GolfBox has no public REST API for handicaps; options to research: GolfBox
-  Portal/API partner access, scraping the logged-in golfbox.dk/golf.is pages,
-  or the golf.is public player search.
-- Credentials must NEVER live in frontend env vars (VITE_* is public in the
-  bundle). Any authenticated fetch belongs server-side: Supabase Edge Function
-  or Cloudflare Pages Function, with secrets in that platform's secret store.
-- Suggested design: scheduled Edge Function (pg_cron / Cloudflare cron
-  trigger) that logs in, pulls handicaps by golfbox_id, updates players table.
-- Do research on current GolfBox integration options before building — this
-  changes; verify against 2026 reality.
+**Research findings (2026-07-21, web):**
+- GolfBox Vendor/member-lookup APIs are union/partner-only (GSÍ is a union
+  customer); no personal-account API exists. Official API route: dead end.
+- Iceland login paths: classic ASP portal at golfbox.dk (/portal, /site —
+  still live, Icelandic supported) and new golfbox.golf SPA using AUTH0
+  (GolfBoxAS forked auth0-spa-js) — Auth0 makes headless login on the new
+  path painful; classic portal is the pragmatic target.
+- Logged-in members can search players by name+club ("golfvinir" search) and
+  see handicaps -> confirms name-lookup approach with personal creds.
+- Public endpoints: only tournament scoring widgets (scores.golfbox.dk); no
+  handicap lookup.
+
+**Implementation (2026-07-21) — built, NOT yet live-verified:**
+- `functions/api/sync-handicaps.js` — Cloudflare Pages Function, POST,
+  requires `X-Sync-Token` == env SYNC_TOKEN. Logs into GolfBox, iterates
+  active players, searches by name, PATCHes handicap/golfbox_id via Supabase
+  REST with service-role key. 400ms delay between lookups.
+- `functions/lib/golfbox.js` — isolated adapter (login, search, parse).
+  ⚠️ UNVERIFIED: endpoints/regexes are best-effort; first authenticated run
+  will 502 with diagnostics if wrong. Fix ONLY this file when that happens.
+- CF Pages secrets needed: GOLFBOX_USER, GOLFBOX_PASS, SYNC_TOKEN,
+  SUPABASE_URL, SUPABASE_SERVICE_KEY. Never VITE_*.
+- UI: PlayersAdmin section on Hringir page — manual inline edit of
+  handicap/golfbox_id (works today regardless of scraper), sync button with
+  token field (token cached in localStorage), per-player failure report.
 
 ## Conventions
 
@@ -98,11 +112,22 @@ Supabase: run `supabase-setup.sql` once in SQL Editor.
 Cloudflare Pages: connect GitHub repo, Vite preset, output `dist`, set
 `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` env vars.
 
+## Next steps
+
+1. User pushes/provides PAT -> push to github.com/akijon/golftour-claude
+2. User sets 5 CF secrets, runs migrations-001 in Supabase
+3. First live sync run -> read failure diagnostics -> fix functions/lib/golfbox.js
+4. Consider: lock admin page (Supabase Auth) if link leaks
+
 ## Session log
 
 - **2026-07-15 (s1):** Misread brief as EMS training app; corrected. Built full
   signup app from Excel (58 players), schema, seed SQL, Icelandic UI, delivered
   zip. Design: fairway green / cream / flag red, Archivo display type.
+- **2026-07-21 (s4):** Researched GolfBox integration (no personal API; Auth0
+  on new login; classic portal viable). Built CF Pages Function sync endpoint +
+  adapter + PlayersAdmin UI with manual editing fallback. Adapter unverified
+  until first run with real creds.
 - **2026-07-21 (s3):** Handicap + golfbox_id columns added (schema, migration,
   UI). GitHub remote known: https://github.com/akijon/golftour-claude — push
   pending PAT from user. GolfBox questions answered; integration still TODO.
