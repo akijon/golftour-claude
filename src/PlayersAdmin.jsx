@@ -6,12 +6,15 @@ export default function PlayersAdmin({ players, reload }) {
   const [msg, setMsg] = useState('')
 
   async function save() {
+    const hcp = edit.handicap === '' ? null : Number(String(edit.handicap).replace(',', '.'))
+    if (hcp !== null && Number.isNaN(hcp)) { setMsg('Forgjöf verður að vera tala, t.d. 12,4'); return }
     const patch = {
-      handicap: edit.handicap === '' ? null : Number(String(edit.handicap).replace(',', '.')),
+      handicap: hcp,
       golfbox_id: edit.golfbox_id.trim() || null,
     }
     const { error } = await supabase.from('players').update(patch).eq('id', edit.id)
     if (error) { setMsg('Villa: ' + error.message); return }
+    setMsg('')
     setEdit(null)
     await reload()
   }

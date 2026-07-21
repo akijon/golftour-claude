@@ -168,6 +168,14 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
 
 ## Session log
 
+- **2026-07-21 (s12):** Code review pass. Fixed: supabase-setup.sql drift
+  (now includes scores table + auth RLS matching deployed migrations — fresh
+  installs are correct again), README rewritten (was garbled/stale: dupe URL
+  lines, said Pages, missed auth), PlayersAdmin NaN guard on handicap input.
+  Verified clean: lint 0/0, build OK, auth flow, standings math, RLS usage.
+  Known accepted trade-offs: anyone can delete anyone's signup (no-identity
+  design), any authenticated user = admin (public sign-ups must stay off).
+
 - **2026-07-21 (s11):** REAL auth: migration auth_rls_lockdown (writes on
   players/rounds/scores -> authenticated only; reads + signup insert/delete
   stay public). AdminGate rewritten to Supabase Auth email/password

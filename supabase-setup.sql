@@ -32,17 +32,33 @@ create table signups (
   unique (round_id, player_id)
 );
 
--- Open access (club-internal app). RLS on with permissive policies.
-alter table players enable row level security;
-alter table rounds enable row level security;
-alter table signups enable row level security;
+create table scores (
+  id bigint generated always as identity primary key,
+  round_id bigint not null references rounds(id) on delete cascade,
+  player_id bigint not null references players(id) on delete cascade,
+  points int not null check (points >= 0),
+  position int,
+  created_at timestamptz not null default now(),
+  unique (round_id, player_id)
+);
 
-create policy "public read players"   on players  for select using (true);
-create policy "public write players"  on players  for all using (true) with check (true);
-create policy "public read rounds"    on rounds   for select using (true);
-create policy "public write rounds"   on rounds   for all using (true) with check (true);
-create policy "public read signups"   on signups  for select using (true);
-create policy "public write signups"  on signups  for all using (true) with check (true);
+-- RLS: reads public; self-signup public; all other writes need Supabase Auth.
+-- Create the admin user in Dashboard -> Authentication and DISABLE public
+-- sign-ups, since any authenticated user gets write access.
+alter table players enable row level security;
+alter table rounds  enable row level security;
+alter table signups enable row level security;
+alter table scores  enable row level security;
+
+create policy "public read players"   on players for select using (true);
+create policy "auth write players"    on players for all to authenticated using (true) with check (true);
+create policy "public read rounds"    on rounds  for select using (true);
+create policy "auth write rounds"     on rounds  for all to authenticated using (true) with check (true);
+create policy "public read scores"    on scores  for select using (true);
+create policy "auth write scores"     on scores  for all to authenticated using (true) with check (true);
+create policy "public read signups"   on signups for select using (true);
+create policy "public insert signups" on signups for insert to anon, authenticated with check (true);
+create policy "public delete signups" on signups for delete to anon, authenticated using (true);
 
 -- Seed: 58 players from golfhopur-2026 Excel
 insert into players (name, position) values

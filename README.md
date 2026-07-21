@@ -1,44 +1,39 @@
-# Golfhópur SHS — Sumarið 2026
+# Golfhópur SHS — Eldtúrinn 2026
 
 **Vefslóð:** https://eldturinn.khalipa.net
 
-Skráningarapp fyrir 5 golfhringi sumarsins.
+Skráningar- og stigakerfi fyrir 5 golfhringi sumarsins. React + Vite + Supabase,
+hýst sem Cloudflare Worker (static assets), auto-deploy frá `main`.
 
-**Vefslóð:** https://eldturinn.khalipa.net React + Vite + Supabase, hýst á Cloudflare Pages.
+## Síður
+- **Skráning** (opið): leikmaður velur nafnið sitt (vistast í vafranum) og
+  skráir sig / afskráir á hringi. Forgjöf birtist við nöfn.
+- **Stigatafla** (opið): mótsstaðan — samtals = besti árangur úr 3 hringjum
+  af 5 (Stableford). Talin stig eru merkt, efsti fær 🏆.
+- **Hringir** (læst, Supabase Auth): búa til/breyta/eyða hringjum, skrá stig
+  eftir hring, breyta forgjöf og GolfBox ID leikmanna.
 
-## Uppsetning (einu sinni)
+## Uppsetning frá grunni
+1. **Supabase**: nýtt verkefni → SQL Editor → keyra `supabase-setup.sql`
+   (töflur `players`/`rounds`/`signups`/`scores`, RLS, seed: 58 leikmenn +
+   5 hringir — núverandi gagnagrunnur er með 60 leikmenn).
+2. **Supabase Auth**: Authentication → Add user (netfang+lykilorð fyrir
+   stjórnanda) og **slökkva á public sign-ups** — allir innskráðir notendur
+   fá skrifréttindi.
+3. **Cloudflare**: tengja GitHub repo sem Workers Builds verkefni.
+   Build command `npm run build`, deploy `npx wrangler deploy`
+   (stillingar í `wrangler.jsonc`). Build variables:
+   `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. Engin secrets.
+4. Custom domain: Worker → Settings → Domains & Routes.
 
-### 1. Supabase (frítt)
-1. Búðu til verkefni á https://supabase.com (Free tier)
-2. Opnaðu **SQL Editor** → límdu inn allt úr `supabase-setup.sql` → Run
-   - Býr til töflurnar `players`, `rounds`, `signups`
-   - Seedar alla 58 leikmenn úr Excel-skjalinu og 5 hringi sumarsins
-3. Í **Project Settings → API**: afritaðu *Project URL* og *anon public key*
-
-### 2. Cloudflare Pages
-1. Push-aðu þessari möppu á GitHub repo
-2. Cloudflare Dashboard → **Workers & Pages → Create → Pages → Connect to Git**
-3. Build stillingar:
-   - Framework preset: **Vite**
-   - Build command: `npm run build`
-   - Output directory: `dist`
-4. **Environment variables** (Production + Preview):
-   - `VITE_SUPABASE_URL` = Project URL
-   - `VITE_SUPABASE_ANON_KEY` = anon public key
-5. Deploy — appið er í loftinu
-
-### Keyra locally
+## Keyra locally
 ```bash
 cp .env.example .env   # fylltu inn Supabase gildin
 npm install
 npm run dev
 ```
 
-## Notkun
-- **Skráning**: leikmaður velur nafnið sitt (vistast í vafranum) og smellir „Skrá mig" / „Afskrá mig" á hverjum hring
-- **Hringir**: ein síða til að búa til, breyta og eyða hringjum (titill, völlur, dagsetning, rástími, hámark, athugasemd)
-- Hringir sem eru liðnir læsast sjálfkrafa
+## Reglur
+- Liðnir hringir læsast sjálfkrafa á Skráningu
 - Hámark leikmanna er valfrjálst — tómt = ótakmarkað
-
-## Athugasemd um öryggi
-RLS-reglurnar eru opnar (allir mega lesa/skrifa) — hentar fyrir lokaðan klúbbhóp þar sem slóðin er ekki opinber. Ef þú vilt læsa admin-síðunni má bæta Supabase Auth við seinna.
+- Sigurvegari móts: hæsta samtala af 3 bestu hringjum af 5
