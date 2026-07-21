@@ -22,7 +22,7 @@ creating, editing, and removing rounds.
 |----------|------------------------------------------|
 | Frontend | React 19 + Vite (SPA, no router — view state toggle) |
 | Database | Supabase (free tier, RLS with open policies) |
-| Hosting  | **Cloudflare Pages** (NOT Vercel — user corrected this early) |
+| Hosting  | **Cloudflare Workers (static assets)** via Workers Builds, repo-connected. Was Pages; converted 2026-07-21 after repo got connected as a Workers project and `wrangler deploy` failed. |
 | Styling  | Plain CSS, single `src/index.css`. No Tailwind. |
 
 ## File map
@@ -127,11 +127,17 @@ dashboard-only — the account's bindings MCP has no Pages tools, verified
 3. Every push to main = production deploy. functions/ dir auto-becomes Pages
    Functions (/api/sync-handicaps).
 
-NOTE: Cloudflare now recommends Workers static assets for NEW projects and
-provides a Pages->Workers migration path (MCP tool
-migrate_pages_to_workers_guide exists). Staying on Pages deliberately:
-functions/ file-routing is Pages-native and fully supported. Revisit only if
-Pages deprecation is announced.
+CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
+- wrangler.jsonc: main ./dist/_worker.js/index.js, assets ./dist with ASSETS
+  binding, SPA not_found_handling, run_worker_first ["/api/*"]
+- functions/ dir KEPT as source; build compiles it:
+  `vite build && wrangler pages functions build --outdir=./dist/_worker.js/`
+- public/.assetsignore excludes _worker.js from served assets
+- Deploy command in Workers Builds: `npx wrangler deploy` (now valid)
+- Secrets: same five names, now under the WORKER's Settings -> Variables and
+  Secrets. VITE_* as Workers Builds build variables.
+- Custom domain eldturinn.khalipa.net: Worker -> Settings -> Domains & Routes
+  -> Add -> Custom Domain (CNAME/cert automatic if zone in account).
 
 ## Next steps
 

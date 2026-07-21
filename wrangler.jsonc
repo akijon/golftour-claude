@@ -1,0 +1,17 @@
+{
+  // Cloudflare Workers (static assets) configuration.
+  // Converted from Pages per CF migration guide — repo is connected as a
+  // Workers Builds project; deploy command: npx wrangler deploy
+  "name": "golftour-claude",
+  "compatibility_date": "2026-07-21",
+  "main": "./dist/_worker.js/index.js",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  }
+  // Secrets (dashboard -> golftour-claude -> Settings -> Variables and Secrets):
+  //   GOLFBOX_USER, GOLFBOX_PASS, SYNC_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_KEY
+  // Build variables (Workers Builds settings): VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+}
