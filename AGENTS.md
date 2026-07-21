@@ -14,7 +14,7 @@ creating, editing, and removing rounds.
   golftour-claude Pages project; pages.dev fallback: golftour-claude.pages.dev)
 - **UI language:** Icelandic
 - **Production URL:** https://eldturinn.khalipa.net (Pages custom domain; pages.dev name: golftour-claude)
-- **Player source of truth:** `golfhopur-2026-uppfært-19_5_2026.xlsx` (58 players, name + position)
+- **Player source of truth:** `golfhopur-2026-uppfært-19_5_2026.xlsx` (58 players) + 2 added 2026-07-21: Ólafur Halldór Torfason (from CSV, gb 9-3907), Árni Oddsson (aka "Árni Odds" in GameBook, hcp 20, no gb id). DB now 60 players.
 
 ## Stack
 
@@ -164,9 +164,11 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
   retireee, Kristmundur Carter=Carter, Sigurjón Ingi Sveinsson=Sigurjón Ingi.
   UNRESOLVED: duplicate golfbox_ids in CSV written as-is, user must fix one
   of each pair: 9-386 (Árni Sig/Bjarni Ingim), 1-1453 (Jón H./Jón Reynir),
-  1-1401 (Svavar/Sævar Sigf), 2-1285 (Sævar Dór/Ævar Örn). CSV-only player
-  Ólafur Halldór Torfason NOT added (not in club list; ask user). "Árni Odds"
-  from round-2 scores still unmatched.
+  1-1401 (Svavar/Sævar Sigf), 2-1285 (Sævar Dór/Ævar Örn).
+  RESOLVED later same day: Ólafur Halldór Torfason added (id 59); Árni Oddsson
+  added (id 60) = GameBook "Árni Odds", his round-2 score (15 pts, pos 21)
+  inserted. Round 2 now complete for positions 9-25; POSITIONS 1-8 STILL
+  MISSING from screenshots.
 
 - **2026-07-21 (s7):** Round 2 (Hella, GK Hellu — course corrected from Korpa)
   scores entered from Golf GameBook screenshots: 16 players matched+inserted,
