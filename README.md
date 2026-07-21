@@ -1,5 +1,7 @@
 # Golfhópur SHS — Sumarið 2026
 
+**Vefslóð:** https://eldturinn.khalipa.net
+
 Skráningarapp fyrir 5 golfhringi sumarsins. React + Vite + Supabase, hýst á Cloudflare Pages.
 
 ## Uppsetning (einu sinni)

@@ -10,6 +10,8 @@ Golf tournament signup app for the SHS (Slökkvilið höfuðborgarsvæðisins) g
 creating, editing, and removing rounds.
 
 - **Owner:** Aki (server administrator, homelab: UniFi UCG Fiber, gerpi.org)
+- **Production URL:** https://eldturinn.khalipa.net (custom domain on the
+  golftour-claude Pages project; pages.dev fallback: golftour-claude.pages.dev)
 - **UI language:** Icelandic
 - **Player source of truth:** `golfhopur-2026-uppfært-19_5_2026.xlsx` (58 players, name + position)
 
@@ -132,7 +134,9 @@ Pages deprecation is announced.
 
 ## Next steps
 
-1. User: create Pages project in dashboard (see Deploy recap), set secrets
+1. User: create Pages project in dashboard (see Deploy recap), set secrets,
+   attach custom domain eldturinn.khalipa.net (Custom domains tab; CNAME
+   auto-created if khalipa.net zone is in same CF account)
 2. User: run migrations-001 in Supabase; ROTATE the GitHub PAT (was pasted in chat)
 3. First live sync run -> read failure diagnostics -> fix functions/lib/golfbox.js
 4. Consider: lock admin page (Supabase Auth) if link leaks
