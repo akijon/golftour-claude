@@ -157,6 +157,16 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
 
 ## Session log
 
+- **2026-07-21 (s9):** All three played rounds now fully scored from GameBook
+  screenshots: H1 "Moooosó" Hlíðavöllur/GM 23 scores (course corrected from
+  Grafarholt), H2 Hella positions 1-8 added (now 25 complete), H3 "Kef"
+  Hólmsvöllur/GS 13 scores (course corrected from Keilir). New aliases:
+  Oliver Oliver=Óliver Ormar, Jón Júlíus Haraldsson=Jón Haraldsson, Larus=
+  Lárus Petersen, Thorir Jonasson=Þórir Karl (ASSUMED), Sævar Hafsteinsson=
+  Sævar Ö H (ASSUMED - verify with user), Jón Trausti=Jón Trausti Gylfason.
+  Standings after 3 rounds: Gylfi Dagur 106 leads, Guðjón Ingason 101,
+  Þorsteinn 100, Finnur 99.
+
 - **2026-07-21 (s8):** User-provided merged CSV (Name,GolfboxID,Handicap,Sex)
   applied via MCP: all 58 players got handicap; 35 got real golfbox_id.
   Placeholder IDs "11111"/"1111" SKIPPED (not written). hcp 24.0 = club
