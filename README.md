@@ -6,12 +6,14 @@ Skráningar- og stigakerfi fyrir 5 golfhringi sumarsins. React + Vite + Supabase
 hýst sem Cloudflare Worker (static assets), auto-deploy frá `main`.
 
 ## Síður
-- **Skráning** (opið): leikmaður velur nafnið sitt (vistast í vafranum) og
-  skráir sig / afskráir á hringi. Forgjöf birtist við nöfn.
+- **Skráning** (opið): leikmaður velur nafnið sitt í leitarboxi (vistast í
+  vafranum) og skráir sig / afskráir á hringi. Forgjöf birtist við nöfn.
+  „Hreinsa val“ hreinsar valið úr vafranum.
 - **Stigatafla** (opið): mótsstaðan — samtals = besti árangur úr 3 hringjum
   af 5 (Stableford). Talin stig eru merkt, efsti fær 🏆.
-- **Hringir** (læst, Supabase Auth): búa til/breyta/eyða hringjum, skrá stig
-  eftir hring, breyta forgjöf og GolfBox ID leikmanna.
+- **Stjórnun** (læst, Supabase Auth): búa til/breyta/eyða hringjum, skrá stig
+  eftir hring, breyta forgjöf og GolfBox ID leikmanna. Skráðir leikmenn
+  birtast efst í stigaskráningu. Óvistaðar breytingar vara við fyrir yfirför.
 
 ## Uppsetning frá grunni
 1. **Supabase**: nýtt verkefni → SQL Editor → keyra `supabase-setup.sql`

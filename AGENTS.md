@@ -1,7 +1,7 @@
 # AGENTS.md — Golfhópur SHS 2026
 
 > Context file for AI agents and developers picking up this project.
-> Last updated: 2026-07-15
+> Last updated: 2026-08-15
 
 ## What this is
 
@@ -20,7 +20,7 @@ creating, editing, and removing rounds.
 
 | Layer    | Choice                                   |
 |----------|------------------------------------------|
-| Frontend | React 19 + Vite (SPA, no router — view state toggle) |
+| Frontend | React 19 + Vite (SPA, hash routing — `#rounds` / `#standings` / `#admin`) |
 | Database | Supabase (free tier, RLS with open policies) |
 | Hosting  | **Cloudflare Workers (static assets)** via Workers Builds, repo-connected. Was Pages; converted 2026-07-21 after repo got connected as a Workers project and `wrangler deploy` failed. |
 | Styling  | Plain CSS, single `src/index.css`. No Tailwind. |
@@ -36,8 +36,13 @@ golf-signup/
 ├── .env.example           ← VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 └── src/
     ├── main.jsx           ← entry
-    ├── App.jsx            ← ALL components: Shell, RoundsView, AdminView, SetupNotice
+    ├── App.jsx            ← Shell, RoundsView, AdminView, AdminGate, hash routing, toast
+    ├── PlayerCombobox.jsx ← searchable player selector (filter + keyboard nav)
+    ├── PlayersAdmin.jsx   ← handicap/golfbox_id inline editing
+    ├── ScoresAdmin.jsx    ← per-round score entry (signed-up players first)
+    ├── Standings.jsx      ← tournament standings (best-3-of-5, leader crown)
     ├── supabase.js        ← client, exports { supabase, configured }
+    ├── utils.js           ← friendlyError() + fmtHcp() shared helpers
     ├── players.json       ← extracted player seed data from Excel
     └── index.css          ← full design system
 ```
@@ -63,7 +68,7 @@ golf-signup/
 Players table now has `handicap numeric(4,1)` and `golfbox_id text`.
 - New installs: in `supabase-setup.sql`
 - Existing DBs: run `migrations-001-handicap.sql`
-- UI shows handicap ("fgj", Icelandic decimal comma) in dropdown, selected-player
+- UI shows handicap ("Fgj.", Icelandic decimal comma) in combobox, selected-player
   badge, and round rosters. Null handicap = hidden, no placeholder.
 
 ## ❌ REMOVED (2026-07-21): Golfbox / GSÍ handicap integration
@@ -110,17 +115,25 @@ credentials.
   will 502 with diagnostics if wrong. Fix ONLY this file when that happens.
 - (obsolete) secrets GOLFBOX_USER/GOLFBOX_PASS/SYNC_TOKEN/SUPABASE_URL/
   SUPABASE_SERVICE_KEY can be DELETED from the Worker. New secret: ADMIN_PIN.
-- UI: PlayersAdmin section on Hringir page — manual inline edit of
+- UI: PlayersAdmin section on Stjórnun page — manual inline edit of
   handicap/golfbox_id (works today regardless of scraper), sync button with
   token field (token cached in localStorage), per-player failure report.
 
 ## Conventions
 
-- Keep everything in `App.jsx` unless it grows past ~400 lines; then split.
+- Keep `App.jsx` under ~400 lines; split self-contained components into their
+  own modules (e.g. `PlayerCombobox.jsx` was extracted at 468→397 lines).
 - Icelandic for all user-facing strings; English for code/comments.
 - Dates stored as `date`, times as `time`, formatted client-side (fmtDate/fmtTime).
-- Player identity = localStorage `shs_player_id` (no auth by design).
+- Player identity = localStorage `shs_player_id` (no auth by design). Cleared
+  via "Hreinsa val" link which also removes the localStorage key.
+- Navigation = hash routing (`#rounds` / `#standings` / `#admin`). Browser
+  back/forward works; dirty admin form triggers confirmation on nav.
+- Error messages mapped to plain Icelandic via `friendlyError()` (src/utils.js),
+  never shown as raw Supabase/English strings.
 - Past rounds auto-lock (isPast check), never deleted automatically.
+- Past round cards at 0.75 opacity (WCAG AA contrast, was 0.6).
+- Handicap abbreviation normalized to "Fgj." (with period) everywhere.
 - Build must pass `npm run build` clean before delivering.
 
 ## Deploy recap
@@ -167,6 +180,25 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
 4. Consider: lock admin page (Supabase Auth) if link leaks
 
 ## Session log
+
+- **2026-08-15 (s13):** UX heuristic evaluation (Nielsen/Krug). Audited all 3
+  views, scored 7/10 (no severity-3+ issues; 5 failed diagnostic rows).
+  Implemented 10 fixes in PR #1 (merged):
+  1. Nav label "Hringir" → "Stjórnun" (was misleading — led to login wall)
+  2. 60-player `<select>` → searchable combobox with keyboard nav (PlayerCombobox.jsx)
+  3. Raw Supabase errors → plain Icelandic via friendlyError() (utils.js)
+  4. Hash routing (#rounds/#standings/#admin) — browser back/forward now works
+  5. Dirty-state warning on admin form (beforeunload + nav confirm + hashchange guard)
+  6. Success toast on round/player/score saves
+  7. Score entry: signed-up players sorted first with visual emphasis
+  8. "fgj"/"Fgj" → "Fgj." normalized everywhere
+  9. "Val þitt er geymt í vafranum" note + "Hreinsa val" link (clears localStorage)
+  10. Past-card opacity 0.6 → 0.75 (WCAG AA contrast)
+  Codex review found 3 P2 issues, all fixed in follow-up commit:
+  - PlayerCombobox extracted to its own module (App.jsx 468→397 lines, under ~400 limit)
+  - "Hreinsa val" now removes localStorage key (was only clearing React state)
+  - hashchange handler guards dirty admin form (back button was bypassing confirmation)
+  Verified: oxlint 0 warnings, build 65 modules, hermes verify all green.
 
 - **2026-07-21 (s12):** Code review pass. Fixed: supabase-setup.sql drift
   (now includes scores table + auth RLS matching deployed migrations — fresh
