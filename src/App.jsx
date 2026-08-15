@@ -1,11 +1,15 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase, configured } from './supabase'
 import PlayersAdmin from './PlayersAdmin'
 import ScoresAdmin from './ScoresAdmin'
 import Standings from './Standings'
+import { friendlyError, fmtHcp } from './utils'
+import PlayerCombobox from './PlayerCombobox'
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maí', 'jún', 'júl', 'ágú', 'sep', 'okt', 'nóv', 'des']
 const DAYS = ['Sunnudagur', 'Mánudagur', 'Þriðjudagur', 'Miðvikudagur', 'Fimmtudagur', 'Föstudagur', 'Laugardagur']
+const VIEWS = ['rounds', 'standings', 'admin']
+const NAV_LABELS = { rounds: 'Skráning', standings: 'Stigatafla', admin: 'Stjórnun' }
 
 function fmtDate(d) {
   if (!d) return ''
@@ -18,12 +22,15 @@ function fmtTime(t) {
 function isPast(d) {
   return new Date(d + 'T23:59:59') < new Date()
 }
-function fmtHcp(h) {
-  return h === null || h === undefined ? null : Number(h).toFixed(1).replace('.', ',')
+
+// --- Hash routing ---
+function getHashView() {
+  const h = window.location.hash.replace('#', '')
+  return VIEWS.includes(h) ? h : 'rounds'
 }
 
 export default function App() {
-  const [view, setView] = useState('rounds') // 'rounds' | 'admin'
+  const [view, setView] = useState(getHashView())
   const [players, setPlayers] = useState([])
   const [rounds, setRounds] = useState([])
   const [signups, setSignups] = useState([])
@@ -31,6 +38,8 @@ export default function App() {
   const [me, setMe] = useState(() => localStorage.getItem('shs_player_id') || '')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [toast, setToast] = useState('')
+  const adminDirtyRef = useRef(false)
 
   const load = useCallback(async () => {
     if (!configured) { setLoading(false); return }
@@ -42,7 +51,7 @@ export default function App() {
       supabase.from('scores').select('*'),
     ])
     const err = p.error || r.error || s.error || sc.error
-    if (err) { setError(err.message); setLoading(false); return }
+    if (err) { setError(friendlyError(err)); setLoading(false); return }
     setPlayers(p.data); setRounds(r.data); setSignups(s.data); setScores(sc.data)
     setLoading(false)
   }, [])
@@ -51,14 +60,58 @@ export default function App() {
 
   useEffect(() => {
     if (me) localStorage.setItem('shs_player_id', me)
+    else localStorage.removeItem('shs_player_id')
   }, [me])
 
-  if (!configured) return <Shell view={view} setView={setView}><SetupNotice /></Shell>
-  if (loading) return <Shell view={view} setView={setView}><p className="status">Sæki gögn…</p></Shell>
+  // Sync hash <-> state — guard against losing unsaved admin form data
+  useEffect(() => {
+    const onHash = () => {
+      const next = getHashView()
+      if (view === 'admin' && next !== 'admin' && adminDirtyRef.current) {
+        if (!window.confirm('Óvistaðar breytingar í stjórnunarformi. Halda áfram?')) {
+          // Restore the hash to keep the user on the admin view
+          window.location.hash = 'admin'
+          return
+        }
+        adminDirtyRef.current = false
+      }
+      setView(next)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [view])
+
+  // Warn before leaving if admin form is dirty
+  useEffect(() => {
+    const onBeforeUnload = (e) => {
+      if (adminDirtyRef.current) { e.preventDefault(); e.returnValue = '' }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [])
+
+  function navigate(next) {
+    if (next === view) return
+    if (view === 'admin' && adminDirtyRef.current) {
+      if (!window.confirm('Óvistaðar breytingar í stjórnunarformi. Halda áfram?')) return
+    }
+    if (next === 'admin' && adminDirtyRef.current) adminDirtyRef.current = false
+    window.location.hash = next
+    setView(next)
+  }
+
+  function showToast(msg) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 3000)
+  }
+
+  if (!configured) return <Shell view={view} setView={navigate}><SetupNotice /></Shell>
+  if (loading) return <Shell view={view} setView={navigate}><p className="status">Sæki gögn…</p></Shell>
 
   return (
-    <Shell view={view} setView={setView}>
-      {error && <p className="status error">Villa: {error} <button className="link" onClick={load}>Reyna aftur</button></p>}
+    <Shell view={view} setView={navigate}>
+      {toast && <div className="toast" role="status">{toast}</div>}
+      {error && <p className="status error">{error} <button className="link" onClick={load}>Reyna aftur</button></p>}
       {view === 'rounds' && (
         <RoundsView players={players} rounds={rounds} signups={signups} me={me} setMe={setMe} reload={load} />
       )}
@@ -67,7 +120,7 @@ export default function App() {
       )}
       {view === 'admin' && (
         <AdminGate>
-          <AdminView rounds={rounds} signups={signups} players={players} scores={scores} reload={load} />
+          <AdminView rounds={rounds} signups={signups} players={players} scores={scores} reload={load} dirtyRef={adminDirtyRef} onToast={showToast} />
         </AdminGate>
       )}
     </Shell>
@@ -87,9 +140,11 @@ function Shell({ view, setView, children }) {
             </div>
           </div>
           <nav className="nav">
-            <button className={view === 'rounds' ? 'nav-btn active' : 'nav-btn'} onClick={() => setView('rounds')}>Skráning</button>
-            <button className={view === 'standings' ? 'nav-btn active' : 'nav-btn'} onClick={() => setView('standings')}>Stigatafla</button>
-            <button className={view === 'admin' ? 'nav-btn active' : 'nav-btn'} onClick={() => setView('admin')}>Hringir</button>
+            {VIEWS.map(v => (
+              <button key={v} className={view === v ? 'nav-btn active' : 'nav-btn'} onClick={() => setView(v)}>
+                {NAV_LABELS[v]}
+              </button>
+            ))}
           </nav>
         </div>
       </header>
@@ -103,7 +158,6 @@ function Shell({ view, setView, children }) {
 
 function RoundsView({ players, rounds, signups, me, setMe, reload }) {
   const [busy, setBusy] = useState(null)
-  const mePlayer = players.find(p => String(p.id) === String(me))
 
   async function toggle(round, signedUp) {
     if (!me) return
@@ -119,25 +173,9 @@ function RoundsView({ players, rounds, signups, me, setMe, reload }) {
 
   return (
     <>
-      <section className="who">
-        <label htmlFor="who">Hver ert þú?</label>
-        <select id="who" value={me} onChange={e => setMe(e.target.value)}>
-          <option value="">— Veldu nafnið þitt —</option>
-          {players.map(p => (
-            <option key={p.id} value={p.id}>
-              {p.name}{fmtHcp(p.handicap) !== null ? ` — fgj ${fmtHcp(p.handicap)}` : ''}
-            </option>
-          ))}
-        </select>
-        {mePlayer && (
-          <span className="who-pos">
-            {mePlayer.position}
-            {fmtHcp(mePlayer.handicap) !== null && <b className="hcp-badge">Fgj. {fmtHcp(mePlayer.handicap)}</b>}
-          </span>
-        )}
-      </section>
+      <PlayerCombobox players={players} me={me} setMe={setMe} />
 
-      {rounds.length === 0 && <p className="status">Engir hringir skráðir enn. Bættu við á „Hringir“ síðunni.</p>}
+      {rounds.length === 0 && <p className="status">Engir hringir skráðir enn. Bættu við á „Stjórnun“ síðunni.</p>}
 
       <div className="cards">
         {rounds.map((r, i) => {
@@ -200,13 +238,13 @@ function RoundsView({ players, rounds, signups, me, setMe, reload }) {
 
 const EMPTY = { title: '', course: '', round_date: '', tee_time: '', max_players: '', notes: '' }
 
-function AdminView({ rounds, signups, players, scores, reload }) {
+function AdminView({ rounds, signups, players, scores, reload, dirtyRef, onToast }) {
   const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })); dirtyRef.current = true }
 
   function startEdit(r) {
     setEditing(r.id)
@@ -215,10 +253,11 @@ function AdminView({ rounds, signups, players, scores, reload }) {
       tee_time: r.tee_time ? r.tee_time.slice(0, 5) : '',
       max_players: r.max_players ?? '', notes: r.notes,
     })
+    dirtyRef.current = true
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function cancel() { setEditing(null); setForm(EMPTY); setMsg('') }
+  function cancel() { setEditing(null); setForm(EMPTY); setMsg(''); dirtyRef.current = false }
 
   async function save() {
     if (!form.title.trim() || !form.round_date) { setMsg('Titill og dagsetning eru nauðsynleg.'); return }
@@ -236,17 +275,20 @@ function AdminView({ rounds, signups, players, scores, reload }) {
       : supabase.from('rounds').insert(row)
     const { error } = await q
     setBusy(false)
-    if (error) { setMsg('Villa: ' + error.message); return }
+    if (error) { setMsg('Villa: ' + friendlyError(error)); return }
     cancel()
     await reload()
+    onToast(editing ? 'Hring uppfærður' : 'Hringur vistaður')
   }
 
   async function remove(r) {
     const n = signups.filter(s => s.round_id === r.id).length
     if (!window.confirm(`Eyða „${r.title}“?${n ? ` ${n} skráningar eyðast líka.` : ''}`)) return
-    await supabase.from('rounds').delete().eq('id', r.id)
+    const { error } = await supabase.from('rounds').delete().eq('id', r.id)
+    if (error) { setMsg('Villa: ' + friendlyError(error)); return }
     if (editing === r.id) cancel()
     await reload()
+    onToast('Hringi eytt')
   }
 
   return (
@@ -289,15 +331,15 @@ function AdminView({ rounds, signups, players, scores, reload }) {
         </ul>
       </section>
 
-      <ScoresAdmin players={players} rounds={rounds} scores={scores} reload={reload} />
+      <ScoresAdmin players={players} rounds={rounds} scores={scores} signups={signups} reload={reload} onToast={onToast} />
 
-      <PlayersAdmin players={players} reload={reload} />
+      <PlayersAdmin players={players} reload={reload} onToast={onToast} />
     </>
   )
 }
 
 function AdminGate({ children }) {
-  const [session, setSession] = useState(undefined) // undefined = loading
+  const [session, setSession] = useState(undefined)
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
@@ -313,10 +355,10 @@ function AdminGate({ children }) {
     setBusy(true); setMsg('')
     const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
     setBusy(false)
-    if (error) setMsg('Innskráning mistókst: ' + error.message)
+    if (error) setMsg(friendlyError(error))
   }
 
-  if (session === undefined) return <p className="status">Athuga aðgang…</p>
+  if (session === undefined) return <p className="status">Athugar aðgang…</p>
   if (session) {
     return (
       <>
@@ -331,7 +373,7 @@ function AdminGate({ children }) {
   return (
     <section className="panel gate">
       <h2 className="panel-title">Aðgangur stjórnanda</h2>
-      <p>Hringir-síðan er læst. Skráðu þig inn.</p>
+      <p>Stjórnunarsíðan er læst. Skráðu þig inn.</p>
       <div className="login-form">
         <input type="email" value={email} placeholder="Netfang" autoComplete="username"
           onChange={e => setEmail(e.target.value)} aria-label="Netfang" />
@@ -349,7 +391,7 @@ function SetupNotice() {
   return (
     <section className="panel">
       <h2 className="panel-title">Uppsetning vantar</h2>
-      <p>Settu <code>VITE_SUPABASE_URL</code> og <code>VITE_SUPABASE_ANON_KEY</code> í <code>.env</code> (eða í Cloudflare Pages umhverfisbreytur) og keyrðu <code>supabase-setup.sql</code> í Supabase SQL Editor.</p>
+      <p>Settu <code>VITE_SUPABASE_URL</code> og <code>VITE_SUPABASE_ANON_KEY</code> í <code>.env</code> (eða Cloudflare umhverfisbreytur) og keyrðu <code>supabase-setup.sql</code> í Supabase SQL Editor.</p>
     </section>
   )
 }
