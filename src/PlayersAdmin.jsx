@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
+import { friendlyError } from './utils'
 
-export default function PlayersAdmin({ players, reload }) {
+export default function PlayersAdmin({ players, reload, onToast }) {
   const [edit, setEdit] = useState(null) // { id, handicap, golfbox_id }
   const [msg, setMsg] = useState('')
 
@@ -13,9 +14,10 @@ export default function PlayersAdmin({ players, reload }) {
       golfbox_id: edit.golfbox_id.trim() || null,
     }
     const { error } = await supabase.from('players').update(patch).eq('id', edit.id)
-    if (error) { setMsg('Villa: ' + error.message); return }
+    if (error) { setMsg('Villa: ' + friendlyError(error)); return }
     setMsg('')
     setEdit(null)
+    onToast('Leikmanni uppfærður')
     await reload()
   }
 
@@ -45,7 +47,7 @@ export default function PlayersAdmin({ players, reload }) {
               <>
                 <div className="admin-info">
                   <strong>{p.name}</strong>
-                  <span>{p.handicap != null ? `fgj ${String(p.handicap).replace('.', ',')}` : 'engin forgjöf'}</span>
+                  <span>{p.handicap != null ? `Fgj. ${String(p.handicap).replace('.', ',')}` : 'engin forgjöf'}</span>
                   <span>{p.golfbox_id ? `GB ${p.golfbox_id}` : ''}</span>
                 </div>
                 <div className="admin-actions">

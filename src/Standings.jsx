@@ -28,7 +28,7 @@ export default function Standings({ players, rounds, scores }) {
 
   if (rows.length === 0) {
     return <section className="panel"><h2 className="panel-title">Stigatafla</h2>
-      <p className="empty">Engin stig skráð enn. Skráðu stig á „Hringir“ síðunni.</p></section>
+      <p className="empty">Engin stig skráð enn. Skráðu stig á „Stjórnun“ síðunni.</p></section>
   }
 
   return (

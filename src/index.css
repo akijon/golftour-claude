@@ -98,7 +98,7 @@ body {
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(20, 40, 30, 0.07);
 }
-.card.past { opacity: 0.6; }
+.card.past { opacity: 0.75; }
 
 .card-head {
   display: flex; align-items: center; gap: 16px;
@@ -283,3 +283,43 @@ code { background: var(--cream); padding: 2px 6px; border-radius: 4px; font-size
 .login-form input { flex: 1; min-width: 200px; padding: 10px 12px; border: 1px solid var(--cream-line);
   border-radius: 8px; font: 500 1rem 'IBM Plex Sans', sans-serif; background: var(--cream); }
 .login-form .cta { margin: 0; }
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  background: var(--fairway); color: var(--white);
+  padding: 10px 24px; border-radius: 999px;
+  font: 600 0.92rem 'IBM Plex Sans', sans-serif;
+  z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: toast-in 0.2s ease-out;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; } }
+
+/* ---- Who am I (combobox) ---- */
+.combobox { flex: 1; min-width: 220px; position: relative; }
+.combobox input {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--cream-line); border-radius: 8px;
+  font: 500 1rem 'IBM Plex Sans', sans-serif; background: var(--cream); color: var(--ink);
+}
+.combobox-list {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  max-height: 280px; overflow-y: auto;
+  background: var(--white); border: 1px solid var(--cream-line);
+  border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  list-style: none; margin: 0; padding: 4px 0; z-index: 50;
+}
+.combobox-list li {
+  padding: 8px 12px; cursor: pointer; font-size: 0.92rem;
+  border-bottom: 1px solid var(--cream-line);
+}
+.combobox-list li:last-child { border-bottom: none; }
+.combobox-list li.cb-hl { background: var(--fairway); color: var(--white); }
+.combobox-list li.cb-empty { color: var(--muted); cursor: default; font-style: italic; }
+.who-note { font-size: 0.76rem; color: var(--muted); font-style: italic; }
+.who-clear { font-size: 0.82rem; }
+
+/* ---- Score grid: signed-up emphasis ---- */
+.score-grid li.not-signed { opacity: 0.5; }
+.score-grid li.signed-up { font-weight: 600; }
+.score-grid li.signed-up .sname::before { content: '● '; color: var(--fairway); font-size: 0.7rem; }
