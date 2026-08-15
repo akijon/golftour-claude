@@ -4,6 +4,7 @@ import PlayersAdmin from './PlayersAdmin'
 import ScoresAdmin from './ScoresAdmin'
 import Standings from './Standings'
 import { friendlyError, fmtHcp } from './utils'
+import PlayerCombobox from './PlayerCombobox'
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maí', 'jún', 'júl', 'ágú', 'sep', 'okt', 'nóv', 'des']
 const DAYS = ['Sunnudagur', 'Mánudagur', 'Þriðjudagur', 'Miðvikudagur', 'Fimmtudagur', 'Föstudagur', 'Laugardagur']
@@ -59,14 +60,26 @@ export default function App() {
 
   useEffect(() => {
     if (me) localStorage.setItem('shs_player_id', me)
+    else localStorage.removeItem('shs_player_id')
   }, [me])
 
-  // Sync hash <-> state
+  // Sync hash <-> state — guard against losing unsaved admin form data
   useEffect(() => {
-    const onHash = () => setView(getHashView())
+    const onHash = () => {
+      const next = getHashView()
+      if (view === 'admin' && next !== 'admin' && adminDirtyRef.current) {
+        if (!window.confirm('Óvistaðar breytingar í stjórnunarformi. Halda áfram?')) {
+          // Restore the hash to keep the user on the admin view
+          window.location.hash = 'admin'
+          return
+        }
+        adminDirtyRef.current = false
+      }
+      setView(next)
+    }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
-  }, [])
+  }, [view])
 
   // Warn before leaving if admin form is dirty
   useEffect(() => {
@@ -139,90 +152,6 @@ function Shell({ view, setView, children }) {
       <footer className="footer">Slökkvilið höfuðborgarsvæðisins · golfhópur</footer>
     </div>
   )
-}
-
-/* ---------------- Searchable player combobox ---------------- */
-
-function PlayerCombobox({ players, me, setMe }) {
-  const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(0)
-  const ref = useRef(null)
-  const mePlayer = players.find(p => String(p.id) === String(me))
-
-  const filtered = filterPlayers(players, query)
-
-  // Close on outside click
-  useEffect(() => {
-    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [])
-
-  function pick(id) {
-    setMe(id)
-    setQuery('')
-    setOpen(false)
-  }
-
-  function onKeyDown(e) {
-    if (!open) return
-    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, filtered.length - 1)) }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)) }
-    else if (e.key === 'Enter') { e.preventDefault(); if (filtered[highlight]) pick(filtered[highlight].id) }
-    else if (e.key === 'Escape') { setOpen(false); setQuery('') }
-  }
-
-  return (
-    <section className="who">
-      <label htmlFor="who">Hver ert þú?</label>
-      <div className="combobox" ref={ref}>
-        <input
-          id="who"
-          type="text"
-          autoComplete="off"
-          placeholder={mePlayer ? mePlayer.name : '— Veldu nafnið þitt —'}
-          value={open ? query : ''}
-          onFocus={() => { setOpen(true); setQuery('') }}
-          onChange={e => { setOpen(true); setQuery(e.target.value); setHighlight(0) }}
-          onKeyDown={onKeyDown}
-          aria-expanded={open}
-          aria-controls="who-list"
-          role="combobox"
-        />
-        {open && (
-          <ul id="who-list" className="combobox-list" role="listbox">
-            {filtered.length === 0 && <li className="cb-empty">Engin niðurstaða fyrir „{query}“</li>}
-            {filtered.map((p, i) => (
-              <li key={p.id} role="option" aria-selected={String(p.id) === String(me)}
-                  className={i === highlight ? 'cb-hl' : ''}
-                  onMouseDown={e => { e.preventDefault(); pick(p.id) }}
-                  onMouseEnter={() => setHighlight(i)}
-              >
-                {p.name}{fmtHcp(p.handicap) !== null ? ` — Fgj. ${fmtHcp(p.handicap)}` : ''}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      {mePlayer && (
-        <span className="who-pos">
-          {mePlayer.position}
-          {fmtHcp(mePlayer.handicap) !== null && <b className="hcp-badge">Fgj. {fmtHcp(mePlayer.handicap)}</b>}
-        </span>
-      )}
-      {me && <button className="link who-clear" onClick={() => setMe('')}>Hreinsa val</button>}
-      <span className="who-note">Val þitt er geymt í vafranum.</span>
-    </section>
-  )
-}
-
-function filterPlayers(players, query) {
-  return players.filter(p => {
-    if (!query) return true
-    const q = query.toLowerCase()
-    return p.name.toLowerCase().includes(q) || (p.position && p.position.toLowerCase().includes(q))
-  })
 }
 
 /* ---------------- Signup view ---------------- */
