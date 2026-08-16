@@ -210,8 +210,24 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 6. Grant the first admin  (REQUIRED — run manually, replace the email)
+-- 6. Lock down RPC execution
 -- ---------------------------------------------------------------------------
-insert into user_roles (user_id, role)
-select id, 'admin' from auth.users where email = 'eldtur@khalipa.net'
-on conflict (user_id) do nothing;
+-- The functions above already raise 'forbidden' for non-admins, but PostgREST
+-- exposes every public function at /rest/v1/rpc/*. Revoking EXECUTE rejects
+-- anon at the API boundary so the in-function check is not the only barrier.
+revoke execute on function admin_soft_delete_player(bigint) from anon, public;
+revoke execute on function admin_restore_player(bigint) from anon, public;
+revoke execute on function admin_set_setting(text, jsonb, text) from anon, public;
+revoke execute on function is_admin() from anon, public;
+
+grant execute on function admin_soft_delete_player(bigint) to authenticated;
+grant execute on function admin_restore_player(bigint) to authenticated;
+grant execute on function admin_set_setting(text, jsonb, text) to authenticated;
+grant execute on function is_admin() to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 7. Grant the first admin  (REQUIRED — run manually, replace the email)
+-- ---------------------------------------------------------------------------
+-- insert into user_roles (user_id, role)
+-- select id, 'admin' from auth.users where email = 'eldtur@khalipa.net'
+-- on conflict (user_id) do nothing;
