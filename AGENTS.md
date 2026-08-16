@@ -1,7 +1,7 @@
 # AGENTS.md — Golfhópur SHS 2026
 
 > Context file for AI agents and developers picking up this project.
-> Last updated: 2026-08-15
+> Last updated: 2026-08-16
 
 ## What this is
 
@@ -11,9 +11,8 @@ creating, editing, and removing rounds.
 
 - **Owner:** Aki (server administrator, homelab: UniFi UCG Fiber, gerpi.org)
 - **Production URL:** https://eldturinn.khalipa.net (custom domain on the
-  golftour-claude Pages project; pages.dev fallback: golftour-claude.pages.dev)
+  golftour-claude Worker; workers.dev fallback: golftour-claude.workers.dev)
 - **UI language:** Icelandic
-- **Production URL:** https://eldturinn.khalipa.net (Pages custom domain; pages.dev name: golftour-claude)
 - **Player source of truth:** `golfhopur-2026-uppfært-19_5_2026.xlsx` (58 players) + 2 added 2026-07-21: Ólafur Halldór Torfason (from CSV, gb 9-3907), Árni Oddsson (aka "Árni Odds" in GameBook, hcp 20, no gb id). DB now 60 players.
 
 ## Stack
@@ -21,19 +20,23 @@ creating, editing, and removing rounds.
 | Layer    | Choice                                   |
 |----------|------------------------------------------|
 | Frontend | React 19 + Vite (SPA, hash routing — `#rounds` / `#standings` / `#admin`) |
-| Database | Supabase (free tier, RLS with open policies) |
-| Hosting  | **Cloudflare Workers (static assets)** via Workers Builds, repo-connected. Was Pages; converted 2026-07-21 after repo got connected as a Workers project and `wrangler deploy` failed. |
+| Database | Supabase (free tier, RLS locked down to authenticated writes) |
+| Hosting  | **Cloudflare Workers (static assets only, no worker script)** via Workers Builds, repo-connected. Was Pages; converted 2026-07-21. |
+| Auth     | Supabase Auth (email/password), admin-only. No custom API endpoints — `functions/` was removed in s11. |
 | Styling  | Plain CSS, single `src/index.css`. No Tailwind. |
 
 ## File map
 
 ```
-golf-signup/
+golftour-claude/
 ├── AGENTS.md              ← this file
 ├── README.md              ← human setup instructions (Icelandic)
 ├── supabase-setup.sql     ← one-shot schema + RLS + seed (58 players, 5 rounds)
+├── migrations-001-handicap.sql ← handicap/golfbox_id columns for existing DBs
+├── wrangler.jsonc         ← Workers static-assets config (no main worker script)
 ├── index.html             ← lang="is", theme #0e3b2e
 ├── .env.example           ← VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+├── public/                ← favicon.svg, icons.svg (served as-is)
 └── src/
     ├── main.jsx           ← entry
     ├── App.jsx            ← Shell, RoundsView, AdminView, AdminGate, hash routing, toast
@@ -136,48 +139,30 @@ credentials.
 - Handicap abbreviation normalized to "Fgj." (with period) everywhere.
 - Build must pass `npm run build` clean before delivering.
 
-## Deploy recap
+## Deploy recap (current state — live in production)
 
-Supabase: run `supabase-setup.sql` once in SQL Editor (existing DBs: also
-`migrations-001-handicap.sql`).
+Supabase: schema is deployed (`supabase-setup.sql` + `migrations-001-handicap.sql`
+both applied). Admin writes require Supabase Auth (email/password user created
+in Dashboard -> Authentication); public sign-ups must stay disabled there.
 
-Cloudflare Pages (config-as-code in `wrangler.toml`; project creation is
-dashboard-only — the account's bindings MCP has no Pages tools, verified
-2026-07-21):
-1. dash.cloudflare.com -> Workers & Pages -> Create -> Pages -> Connect to Git
-   -> akijon/golftour-claude. Build command `npm run build`; output dir comes
-   from wrangler.toml (`./dist`), name `golftour-claude`.
-2. Settings -> Variables and Secrets:
-   Secrets (Prod+Preview): GOLFBOX_USER, GOLFBOX_PASS, SYNC_TOKEN,
-   SUPABASE_URL, SUPABASE_SERVICE_KEY
-   Plaintext: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
-3. Every push to main = production deploy. functions/ dir auto-becomes Pages
-   Functions (/api/sync-handicaps).
+Cloudflare Workers (static assets only, config-as-code in `wrangler.jsonc`,
+repo-connected via Workers Builds):
+- No worker script (`main`) — pure static asset serving, SPA fallback via
+  `not_found_handling`. No secrets needed.
+- Build variables (Workers Builds settings): `VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY`.
+- Deploy command: `npx wrangler deploy`. Every push to `main` = production
+  deploy — `npm run build` must pass clean first.
+- Custom domain eldturinn.khalipa.net attached via Worker -> Settings ->
+  Domains & Routes (workers.dev fallback also live).
 
-CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
-- wrangler.jsonc: main ./dist/_worker.js/index.js, assets ./dist with ASSETS
-  binding, SPA not_found_handling, run_worker_first ["/api/*"]
-- functions/ dir KEPT as source; build compiles it:
-  `vite build && wrangler pages functions build --outdir=./dist/_worker.js/`
-- public/.assetsignore excludes _worker.js from served assets
-- Deploy command in Workers Builds: `npx wrangler deploy` (now valid)
-- Secrets: same five names, now under the WORKER's Settings -> Variables and
-  Secrets. VITE_* as Workers Builds build variables.
-- Custom domain eldturinn.khalipa.net: Worker -> Settings -> Domains & Routes
-  -> Add -> Custom Domain (CNAME/cert automatic if zone in account).
+For the historical Pages→Workers migration and the removed GolfBox
+integration, see the Session log below.
 
-## Next steps
+## Open items
 
-1. User: create Pages project in dashboard (see Deploy recap), set secrets,
-   attach custom domain eldturinn.khalipa.net (CNAME auto if khalipa.net zone
-   is in same CF account; else manual CNAME -> golftour-claude.pages.dev).
-   ALT: user adds https://mcp.cloudflare.com/mcp as custom connector in
-   claude.ai -> may expose Pages/DNS tools so agent can do this itself.,
-   attach custom domain eldturinn.khalipa.net (Custom domains tab; CNAME
-   auto-created if khalipa.net zone is in same CF account)
-2. User: run migrations-001 in Supabase; ROTATE the GitHub PAT (was pasted in chat)
-3. First live sync run -> read failure diagnostics -> fix functions/lib/golfbox.js
-4. Consider: lock admin page (Supabase Auth) if link leaks
+- Consider: further lock down admin route if the link leaks (currently gated
+  by Supabase Auth login, which is sufficient today).
 
 ## Session log
 
@@ -199,6 +184,17 @@ CONVERTED to Workers static assets (2026-07-21, per CF migration guide):
   - "Hreinsa val" now removes localStorage key (was only clearing React state)
   - hashchange handler guards dirty admin form (back button was bypassing confirmation)
   Verified: oxlint 0 warnings, build 65 modules, hermes verify all green.
+
+- **2026-08-16 (s14):** Housekeeping. AGENTS.md rewritten: removed duplicate
+  "Production URL" line, fixed file map (root folder name, added
+  wrangler.jsonc/migrations-001-handicap.sql/public/ entries), corrected Stack
+  table and Deploy recap to reflect the assets-only Worker (no `functions/`,
+  no worker script — that setup was superseded in s11 and the doc still
+  described it), collapsed the fully-stale "Next steps" list. Removed unused
+  files: `src/assets/hero.png` (tracked, unreferenced anywhere in code, and
+  had ballooned to 690KB uncommitted vs. its 13KB committed version),
+  `src/assets/hero.png.bak` (untracked leftover), `src/assets/vite.svg`
+  (default Vite scaffold logo, unreferenced). `src/assets/` is now empty.
 
 - **2026-07-21 (s12):** Code review pass. Fixed: supabase-setup.sql drift
   (now includes scores table + auth RLS matching deployed migrations — fresh
