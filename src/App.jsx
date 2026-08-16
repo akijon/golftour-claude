@@ -4,25 +4,11 @@ import PlayersAdmin from './PlayersAdmin'
 import SettingsAdmin from './SettingsAdmin'
 import ScoresAdmin from './ScoresAdmin'
 import Standings from './Standings'
-import { friendlyError, fmtHcp } from './utils'
-import PlayerCombobox from './PlayerCombobox'
+import RoundsView from './RoundsView'
+import { fmtDate, fmtTime, friendlyError } from './utils'
 
-const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maí', 'jún', 'júl', 'ágú', 'sep', 'okt', 'nóv', 'des']
-const DAYS = ['Sunnudagur', 'Mánudagur', 'Þriðjudagur', 'Miðvikudagur', 'Fimmtudagur', 'Föstudagur', 'Laugardagur']
 const VIEWS = ['rounds', 'standings', 'admin']
 const NAV_LABELS = { rounds: 'Skráning', standings: 'Stigatafla', admin: 'Stjórnun' }
-
-function fmtDate(d) {
-  if (!d) return ''
-  const dt = new Date(d + 'T00:00:00')
-  return `${DAYS[dt.getDay()]} ${dt.getDate()}. ${MONTHS[dt.getMonth()]}`
-}
-function fmtTime(t) {
-  return t ? t.slice(0, 5) : ''
-}
-function isPast(d) {
-  return new Date(d + 'T23:59:59') < new Date()
-}
 
 // --- Hash routing ---
 function getHashView() {
@@ -114,7 +100,7 @@ export default function App() {
       {toast && <div className="toast" role="status">{toast}</div>}
       {error && <p className="status error">{error} <button className="link" onClick={load}>Reyna aftur</button></p>}
       {view === 'rounds' && (
-        <RoundsView players={players} rounds={rounds} signups={signups} me={me} setMe={setMe} reload={load} />
+        <RoundsView players={players} rounds={rounds} signups={signups} me={me} setMe={setMe} reload={load} onToast={showToast} />
       )}
       {view === 'standings' && (
         <Standings players={players} rounds={rounds} scores={scores} />
@@ -152,86 +138,6 @@ function Shell({ view, setView, children }) {
       <main className="main">{children}</main>
       <footer className="footer">Slökkvilið höfuðborgarsvæðisins · golfhópur</footer>
     </div>
-  )
-}
-
-/* ---------------- Signup view ---------------- */
-
-function RoundsView({ players, rounds, signups, me, setMe, reload }) {
-  const [busy, setBusy] = useState(null)
-
-  async function toggle(round, signedUp) {
-    if (!me) return
-    setBusy(round.id)
-    if (signedUp) {
-      await supabase.from('signups').delete().eq('round_id', round.id).eq('player_id', me)
-    } else {
-      await supabase.from('signups').insert({ round_id: round.id, player_id: Number(me) })
-    }
-    await reload()
-    setBusy(null)
-  }
-
-  return (
-    <>
-      <PlayerCombobox players={players} me={me} setMe={setMe} />
-
-      {rounds.length === 0 && <p className="status">Engir hringir skráðir enn. Bættu við á „Stjórnun“ síðunni.</p>}
-
-      <div className="cards">
-        {rounds.map((r, i) => {
-          const list = signups.filter(s => s.round_id === r.id)
-          const signedUp = me && list.some(s => String(s.player_id) === String(me))
-          const full = r.max_players && list.length >= r.max_players && !signedUp
-          const past = isPast(r.round_date)
-          return (
-            <article key={r.id} className={past ? 'card past' : 'card'}>
-              <div className="card-head">
-                <span className="round-no">{i + 1}</span>
-                <div className="card-title">
-                  <h2>{r.title}</h2>
-                  <p className="course">{r.course}</p>
-                </div>
-                <div className="card-when">
-                  <span className="date">{fmtDate(r.round_date)}</span>
-                  {r.tee_time && <span className="tee">Rástími {fmtTime(r.tee_time)}</span>}
-                </div>
-              </div>
-              {r.notes && <p className="notes">{r.notes}</p>}
-              <div className="card-body">
-                <div className="roster">
-                  <p className="roster-count">
-                    {list.length} skráð{r.max_players ? ` / ${r.max_players}` : ''}
-                  </p>
-                  <ul>
-                    {list.map(s => {
-                      const p = players.find(pl => pl.id === s.player_id)
-                      return p ? (
-                        <li key={s.id}>
-                          {p.name}
-                          {fmtHcp(p.handicap) !== null && <span className="hcp">{fmtHcp(p.handicap)}</span>}
-                        </li>
-                      ) : null
-                    })}
-                  </ul>
-                  {list.length === 0 && <p className="empty">Enginn skráður enn — vertu fyrst(ur)!</p>}
-                </div>
-              </div>
-              {!past && (
-                <button
-                  className={signedUp ? 'cta out' : 'cta'}
-                  disabled={!me || busy === r.id || full}
-                  onClick={() => toggle(r, signedUp)}
-                >
-                  {busy === r.id ? '…' : !me ? 'Veldu nafn fyrst' : full ? 'Fullbókað' : signedUp ? 'Afskrá mig' : 'Skrá mig'}
-                </button>
-              )}
-              {past && <p className="past-label">Lokið</p>}
-            </article>
-          )
-        })}
-      </div>
-    </>
   )
 }
 
