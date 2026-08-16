@@ -1,10 +1,22 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
+import { softDeletePlayer } from './adminApi'
 import { friendlyError } from './utils'
 
 export default function PlayersAdmin({ players, reload, onToast }) {
   const [edit, setEdit] = useState(null) // { id, handicap, golfbox_id }
+  const [confirmDel, setConfirmDel] = useState(null) // player pending confirmation
   const [msg, setMsg] = useState('')
+
+  async function remove(player) {
+    try {
+      await softDeletePlayer(player.id)
+      setConfirmDel(null)
+      setMsg('')
+      onToast(`${player.name} fjarlægður`)
+      await reload()
+    } catch (e) { setMsg('Villa: ' + friendlyError(e)) }
+  }
 
   async function save() {
     const hcp = edit.handicap === '' ? null : Number(String(edit.handicap).replace(',', '.'))
@@ -51,9 +63,20 @@ export default function PlayersAdmin({ players, reload, onToast }) {
                   <span>{p.golfbox_id ? `GB ${p.golfbox_id}` : ''}</span>
                 </div>
                 <div className="admin-actions">
-                  <button className="link" onClick={() =>
-                    setEdit({ id: p.id, handicap: p.handicap ?? '', golfbox_id: p.golfbox_id ?? '' })
-                  }>Breyta</button>
+                  {confirmDel?.id === p.id ? (
+                    <>
+                      <span className="confirm-q">Fjarlægja?</span>
+                      <button className="link danger" onClick={() => remove(p)}>Já</button>
+                      <button className="link" onClick={() => setConfirmDel(null)}>Nei</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="link" onClick={() =>
+                        setEdit({ id: p.id, handicap: p.handicap ?? '', golfbox_id: p.golfbox_id ?? '' })
+                      }>Breyta</button>
+                      <button className="link danger" onClick={() => setConfirmDel(p)}>Fjarlægja</button>
+                    </>
+                  )}
                 </div>
               </>
             )}

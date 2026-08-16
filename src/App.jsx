@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase, configured } from './supabase'
 import PlayersAdmin from './PlayersAdmin'
+import SettingsAdmin from './SettingsAdmin'
 import ScoresAdmin from './ScoresAdmin'
 import Standings from './Standings'
 import { friendlyError, fmtHcp } from './utils'
@@ -45,7 +46,7 @@ export default function App() {
     if (!configured) { setLoading(false); return }
     setError('')
     const [p, r, s, sc] = await Promise.all([
-      supabase.from('players').select('*').eq('active', true).order('name'),
+      supabase.from('players').select('*').eq('active', true).is('deleted_at', null).order('name'),
       supabase.from('rounds').select('*').order('round_date'),
       supabase.from('signups').select('*'),
       supabase.from('scores').select('*'),
@@ -334,6 +335,7 @@ function AdminView({ rounds, signups, players, scores, reload, dirtyRef, onToast
       <ScoresAdmin players={players} rounds={rounds} scores={scores} signups={signups} reload={reload} onToast={onToast} />
 
       <PlayersAdmin players={players} reload={reload} onToast={onToast} />
+      <SettingsAdmin onToast={onToast} />
     </>
   )
 }

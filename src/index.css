@@ -188,6 +188,7 @@ body {
   text-decoration: underline; cursor: pointer;
 }
 .link.danger { color: var(--flag-dark); }
+.confirm-q { font: 600 0.92rem 'IBM Plex Sans', sans-serif; color: var(--flag-dark); }
 
 .admin-list { margin: 0; padding: 0; list-style: none; }
 .admin-list li {
