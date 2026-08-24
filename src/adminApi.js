@@ -28,6 +28,37 @@ export async function saveSetting(key, value, description = null) {
   if (error) throw error
 }
 
+export async function fetchAdminPlayers() {
+  const { data, error } = await supabase
+    .from('players').select('*').order('name')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function createPlayer(player) {
+  const { data, error } = await supabase.rpc('admin_create_player', {
+    p_name: player.name,
+    p_position: player.position,
+    p_active: player.active,
+    p_handicap: player.handicap,
+    p_golfbox_id: player.golfbox_id,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function updatePlayer(playerId, player) {
+  const { error } = await supabase.rpc('admin_update_player', {
+    p_player_id: playerId,
+    p_name: player.name,
+    p_position: player.position,
+    p_active: player.active,
+    p_handicap: player.handicap,
+    p_golfbox_id: player.golfbox_id,
+  })
+  if (error) throw error
+}
+
 export async function softDeletePlayer(playerId) {
   const { error } = await supabase.rpc('admin_soft_delete_player', {
     p_player_id: playerId,
