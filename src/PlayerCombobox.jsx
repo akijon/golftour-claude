@@ -9,14 +9,14 @@ function filterPlayers(players, query) {
   })
 }
 
-export default function PlayerCombobox({ players, me, setMe }) {
+export default function PlayerCombobox({ players, selectablePlayers = players, me, setMe }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [highlight, setHighlight] = useState(0)
   const ref = useRef(null)
   const mePlayer = players.find(p => String(p.id) === String(me))
 
-  const filtered = filterPlayers(players, query)
+  const filtered = filterPlayers(selectablePlayers, query)
 
   // Close on outside click
   useEffect(() => {

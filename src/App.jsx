@@ -26,7 +26,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
-  const adminDirtyRef = useRef(false)
+  const adminDirtyRef = useRef(new Set())
 
   const load = useCallback(async () => {
     if (!configured) { setLoading(false); return }
@@ -54,13 +54,13 @@ export default function App() {
   useEffect(() => {
     const onHash = () => {
       const next = getHashView()
-      if (view === 'admin' && next !== 'admin' && adminDirtyRef.current) {
+      if (view === 'admin' && next !== 'admin' && adminDirtyRef.current.size > 0) {
         if (!window.confirm('Óvistaðar breytingar í stjórnunarformi. Halda áfram?')) {
           // Restore the hash to keep the user on the admin view
           window.location.hash = 'admin'
           return
         }
-        adminDirtyRef.current = false
+        adminDirtyRef.current.clear()
       }
       setView(next)
     }
@@ -71,7 +71,7 @@ export default function App() {
   // Warn before leaving if admin form is dirty
   useEffect(() => {
     const onBeforeUnload = (e) => {
-      if (adminDirtyRef.current) { e.preventDefault(); e.returnValue = '' }
+      if (adminDirtyRef.current.size > 0) { e.preventDefault(); e.returnValue = '' }
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
@@ -79,10 +79,10 @@ export default function App() {
 
   function navigate(next) {
     if (next === view) return
-    if (view === 'admin' && adminDirtyRef.current) {
+    if (view === 'admin' && adminDirtyRef.current.size > 0) {
       if (!window.confirm('Óvistaðar breytingar í stjórnunarformi. Halda áfram?')) return
+      adminDirtyRef.current.clear()
     }
-    if (next === 'admin' && adminDirtyRef.current) adminDirtyRef.current = false
     window.location.hash = next
     setView(next)
   }
@@ -151,7 +151,7 @@ function AdminView({ rounds, signups, players, scores, reload, dirtyRef, onToast
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })); dirtyRef.current = true }
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })); dirtyRef.current.add('round') }
 
   function startEdit(r) {
     setEditing(r.id)
@@ -160,11 +160,11 @@ function AdminView({ rounds, signups, players, scores, reload, dirtyRef, onToast
       tee_time: r.tee_time ? r.tee_time.slice(0, 5) : '',
       max_players: r.max_players ?? '', notes: r.notes,
     })
-    dirtyRef.current = true
+    dirtyRef.current.add('round')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function cancel() { setEditing(null); setForm(EMPTY); setMsg(''); dirtyRef.current = false }
+  function cancel() { setEditing(null); setForm(EMPTY); setMsg(''); dirtyRef.current.delete('round') }
 
   async function save() {
     if (!form.title.trim() || !form.round_date) { setMsg('Titill og dagsetning eru nauðsynleg.'); return }
@@ -240,7 +240,7 @@ function AdminView({ rounds, signups, players, scores, reload, dirtyRef, onToast
 
       <ScoresAdmin players={players} rounds={rounds} scores={scores} signups={signups} reload={reload} onToast={onToast} />
 
-      <PlayersAdmin reload={reload} onToast={onToast} />
+      <PlayersAdmin reload={reload} dirtyRef={dirtyRef} onToast={onToast} />
       <SettingsAdmin onToast={onToast} />
     </>
   )
