@@ -6,6 +6,8 @@ import ScoresAdmin from './ScoresAdmin'
 import Standings from './Standings'
 import RoundsView from './RoundsView'
 import { fmtDate, fmtTime, friendlyError } from './utils'
+import { groupingsFromStore } from './grouping'
+import GroupingsAdmin from './GroupingsAdmin'
 
 const VIEWS = ['rounds', 'standings', 'admin']
 const NAV_LABELS = { rounds: 'Skráning', standings: 'Stigatafla', admin: 'Stjórnun' }
@@ -22,6 +24,7 @@ export default function App() {
   const [rounds, setRounds] = useState([])
   const [signups, setSignups] = useState([])
   const [scores, setScores] = useState([])
+  const [groupings, setGroupings] = useState({})
   const [me, setMe] = useState(() => localStorage.getItem('shs_player_id') || '')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,15 +34,20 @@ export default function App() {
   const load = useCallback(async () => {
     if (!configured) { setLoading(false); return }
     setError('')
-    const [p, r, s, sc] = await Promise.all([
+    const [p, r, s, sc, g] = await Promise.all([
       supabase.from('players').select('*').is('deleted_at', null).order('name'),
       supabase.from('rounds').select('*').order('round_date'),
       supabase.from('signups').select('*'),
       supabase.from('scores').select('*'),
+      supabase.from('app_settings').select('key,value'),
     ])
     const err = p.error || r.error || s.error || sc.error
     if (err) { setError(friendlyError(err)); setLoading(false); return }
     setPlayers(p.data); setRounds(r.data); setSignups(s.data); setScores(sc.data)
+    // app_settings is optional (settings read is public). If it fails, fall back
+    // to automatic groupings rather than blocking the whole app.
+    if (g.error) setGroupings({})
+    else setGroupings(groupingsFromStore(g.data))
     setLoading(false)
   }, [])
 
@@ -100,14 +108,14 @@ export default function App() {
       {toast && <div className="toast" role="status">{toast}</div>}
       {error && <p className="status error">{error} <button className="link" onClick={load}>Reyna aftur</button></p>}
       {view === 'rounds' && (
-        <RoundsView players={players} rounds={rounds} signups={signups} me={me} setMe={setMe} reload={load} onToast={showToast} />
+        <RoundsView players={players} rounds={rounds} signups={signups} groupings={groupings} me={me} setMe={setMe} reload={load} onToast={showToast} />
       )}
       {view === 'standings' && (
         <Standings players={players} rounds={rounds} scores={scores} />
       )}
       {view === 'admin' && (
         <AdminGate dirtyRef={adminDirtyRef}>
-          <AdminView rounds={rounds} signups={signups} players={players} scores={scores} reload={load} dirtyRef={adminDirtyRef} onToast={showToast} />
+          <AdminView rounds={rounds} signups={signups} players={players} scores={scores} groupings={groupings} reload={load} dirtyRef={adminDirtyRef} onToast={showToast} />
         </AdminGate>
       )}
     </Shell>
@@ -145,7 +153,7 @@ function Shell({ view, setView, children }) {
 
 const EMPTY = { title: '', course: '', round_date: '', tee_time: '', max_players: '', notes: '' }
 
-function AdminView({ rounds, signups, players, scores, reload, dirtyRef, onToast }) {
+function AdminView({ rounds, signups, players, scores, groupings, reload, dirtyRef, onToast }) {
   const [form, setForm] = useState(EMPTY)
   const [editing, setEditing] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -239,6 +247,8 @@ function AdminView({ rounds, signups, players, scores, reload, dirtyRef, onToast
       </section>
 
       <ScoresAdmin players={players} rounds={rounds} scores={scores} signups={signups} reload={reload} onToast={onToast} />
+
+      <GroupingsAdmin rounds={rounds} signups={signups} players={players} groupings={groupings} reload={reload} dirtyRef={dirtyRef} onToast={onToast} />
 
       <PlayersAdmin reload={reload} dirtyRef={dirtyRef} onToast={onToast} />
       <SettingsAdmin onToast={onToast} />

@@ -2,10 +2,10 @@ import { useState } from 'react'
 import PlayerCombobox from './PlayerCombobox'
 import { supabase } from './supabase'
 import { fmtDate, fmtHcp, fmtTime, friendlyError, isPast } from './utils'
-import { groupSignups } from './grouping'
+import { resolveGrouping } from './grouping'
 
-function Roster({ list, players, maxPlayers, round }) {
-  const { impossibleNotice, groups, validSignups } = groupSignups(list, round, players)
+function Roster({ list, players, maxPlayers, round, override }) {
+  const { impossibleNotice, groups, validSignups, unassigned } = resolveGrouping(list, round, players, override)
   const hasGroups = groups.length > 0
 
   return (
@@ -16,15 +16,33 @@ function Roster({ list, players, maxPlayers, round }) {
       </summary>
       <div className="roster">
         {hasGroups ? (
-          <div className="roster-groups">
-            {groups.map(group => (
-              <section key={group.groupNumber} className="roster-group" aria-label={`Hópur ${group.groupNumber}`}>
+          <>
+            <div className="roster-groups">
+              {groups.map(group => (
+                <section key={group.groupNumber} className="roster-group" aria-label={`Hópur ${group.groupNumber}`}>
+                  <div className="roster-group-title">
+                    <strong>Hópur {group.groupNumber}</strong>
+                    {group.teeTime && <span className="group-tee">Rástími {group.teeTime}</span>}
+                  </div>
+                  <ul>
+                    {group.items.map(({ signup, player }) => (
+                      <li key={signup.id}>
+                        {player.name}
+                        {fmtHcp(player.handicap) !== null && <span className="hcp">{fmtHcp(player.handicap)}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+            {unassigned.length > 0 && (
+              <section className="roster-group unassigned" aria-label="Óflokkaðir leikmenn">
                 <div className="roster-group-title">
-                  <strong>Hópur {group.groupNumber}</strong>
-                  {group.teeTime && <span className="group-tee">Rástími {group.teeTime}</span>}
+                  <strong>Óflokkaðir</strong>
+                  <span className="group-tee">Skráðir eftir að hópar voru vistaðir</span>
                 </div>
                 <ul>
-                  {group.items.map(({ signup, player }) => (
+                  {unassigned.map(({ signup, player }) => (
                     <li key={signup.id}>
                       {player.name}
                       {fmtHcp(player.handicap) !== null && <span className="hcp">{fmtHcp(player.handicap)}</span>}
@@ -32,8 +50,8 @@ function Roster({ list, players, maxPlayers, round }) {
                   ))}
                 </ul>
               </section>
-            ))}
-          </div>
+            )}
+          </>
         ) : (
           <>
             {impossibleNotice && (
@@ -57,7 +75,7 @@ function Roster({ list, players, maxPlayers, round }) {
   )
 }
 
-function RoundCard({ round, number, players, signups, me, canSignup, busy, onToggle }) {
+function RoundCard({ round, number, players, signups, override, me, canSignup, busy, onToggle }) {
   const list = signups.filter(signup => signup.round_id === round.id)
   const signedUp = me && list.some(signup => String(signup.player_id) === String(me))
   const full = round.max_players && list.length >= round.max_players && !signedUp
@@ -91,12 +109,12 @@ function RoundCard({ round, number, players, signups, me, canSignup, busy, onTog
         </button>
       )}
       {past && <p className="past-label">Lokið</p>}
-      <Roster list={list} players={players} maxPlayers={round.max_players} round={round} />
+      <Roster list={list} players={players} maxPlayers={round.max_players} round={round} override={override} />
     </article>
   )
 }
 
-export default function RoundsView({ players, rounds, signups, me, setMe, reload, onToast }) {
+export default function RoundsView({ players, rounds, signups, groupings, me, setMe, reload, onToast }) {
   const [busy, setBusy] = useState(null)
   const [actionError, setActionError] = useState('')
   const activePlayers = players.filter(player => player.active)
@@ -142,7 +160,7 @@ export default function RoundsView({ players, rounds, signups, me, setMe, reload
           <h2 className="section-title" id="upcoming-rounds-heading">Næstu hringir</h2>
           <div className="cards">
             {upcoming.map(round => (
-              <RoundCard key={round.id} round={round} number={roundNumber(round)} players={players} signups={signups}
+              <RoundCard key={round.id} round={round} number={roundNumber(round)} players={players} signups={signups} override={groupings[round.id]}
                 me={selectedMe} canSignup={canSignup} busy={busy} onToggle={toggle} />
             ))}
           </div>
@@ -157,7 +175,7 @@ export default function RoundsView({ players, rounds, signups, me, setMe, reload
           </summary>
           <div className="cards">
             {completed.map(round => (
-              <RoundCard key={round.id} round={round} number={roundNumber(round)} players={players} signups={signups}
+              <RoundCard key={round.id} round={round} number={roundNumber(round)} players={players} signups={signups} override={groupings[round.id]}
                 me={selectedMe} canSignup={canSignup} busy={busy} onToggle={toggle} />
             ))}
           </div>

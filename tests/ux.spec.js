@@ -45,7 +45,7 @@ const scores = rounds.slice(0, 3).flatMap(round =>
   })),
 )
 
-async function mockSupabase(page, { adminLogin = false, signupFailure = false, withdrawalFailure = false, customRounds = null, customSignups = null } = {}) {
+async function mockSupabase(page, { adminLogin = false, signupFailure = false, withdrawalFailure = false, customRounds = null, customSignups = null, groups = [] } = {}) {
   await page.route(/http:\/\/(localhost|127\.0\.0\.1):9999\/.*/, async route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -63,6 +63,7 @@ async function mockSupabase(page, { adminLogin = false, signupFailure = false, w
       const publicRoster = url.searchParams.get('active') === 'eq.true' || url.searchParams.get('deleted_at') === 'is.null'
       body = publicRoster ? players : [...players, deletedPlayer]
     }
+    else if (url.pathname.includes('/rest/v1/app_settings')) body = groups
     else if (url.pathname.includes('/rest/v1/rounds')) body = customRounds || rounds
     else if (url.pathname.includes('/rest/v1/signups')) body = customSignups || signups
     else if (url.pathname.includes('/rest/v1/scores')) body = scores
@@ -436,4 +437,123 @@ test('signing out clears admin dirty markers', async ({ page }) => {
 
   expect(dialogMessage).toBe('')
   await expect(page.getByText('Hver ert þú?')).toBeVisible()
+})
+
+// ---- Manual grouping overrides ----
+
+const groupRound = { id: 10, title: 'Test 8 Signups', course: 'Testvöllur', round_date: '2099-07-01', tee_time: '15:30:00', max_players: 20, notes: '' }
+const groupRoundSignups = Array.from({ length: 8 }, (_, i) => ({
+  id: 500 + i,
+  round_id: 10,
+  player_id: i + 1,
+  created_at: `2026-06-01T10:${String(i).padStart(2, '0')}:00Z`,
+}))
+
+test('stored override groups the roster and surfaces unassigned signups', async ({ page }) => {
+  const groups = [
+    {
+      key: 'round_groupings_10',
+      value: { version: 1, groups: [{ teeTime: '11:00', playerIds: [1, 2, 3, 4] }, { teeTime: '11:20', playerIds: [5, 6] }] },
+    },
+  ]
+  await mockSupabase(page, { customRounds: [groupRound], customSignups: groupRoundSignups, groups })
+  await page.goto('/#rounds')
+  await expect(page.getByText('Hver ert þú?')).toBeVisible()
+
+  const card = page.locator('.upcoming-rounds .card').first()
+  await card.locator('details.roster-details > summary').click()
+
+  const headings = card.locator('.roster-group-title')
+  await expect(headings).toHaveCount(3) // 2 groups + unassigned
+  await expect(headings.nth(0)).toContainText('Hópur 1')
+  await expect(headings.nth(0)).toContainText('Rástími 11:00')
+  await expect(headings.nth(1)).toContainText('Hópur 2')
+  await expect(headings.nth(1)).toContainText('Rástími 11:20')
+
+  const groups20 = card.locator('.roster-group')
+  await expect(groups20.nth(0).locator('li')).toHaveCount(4)
+  await expect(groups20.nth(1).locator('li')).toHaveCount(2)
+
+  const unassigned = card.locator('.roster-group.unassigned')
+  await expect(headings.nth(2)).toContainText('Óflokkaðir')
+  await expect(unassigned.locator('li')).toHaveCount(2)
+  await expect(unassigned).toContainText('Leikmaður 7')
+  await expect(unassigned).toContainText('Leikmaður 8')
+})
+
+test('admin can move players between groups and save via audited RPC', async ({ page }) => {
+  await mockSupabase(page, { adminLogin: true, customRounds: [groupRound], customSignups: groupRoundSignups })
+  await page.goto('/#admin')
+  await page.getByLabel('Netfang').fill('[EMAIL]')
+  await page.getByLabel('Lykilorð').fill('test-password')
+  await page.getByRole('button', { name: 'Innskrá' }).click()
+  await expect(page.getByRole('heading', { name: 'Hópar' })).toBeVisible()
+
+  await page.getByLabel('Veldu hring fyrir hópa').selectOption('10')
+
+  // Default is 4/4 (players 1-4, 5-8). Move player 2 into group 2.
+  const p2 = page.locator('.group-card').nth(0).locator('.group-row', { hasText: 'Leikmaður 2' })
+  await p2.getByLabel(/Færa leikmann Leikmaður 2/).selectOption('1')
+  // Adjust group 2's tee time.
+  await page.locator('.group-card').nth(1).getByLabel('Rástími hóps 2').fill('11:20')
+
+  const saveRequest = page.waitForRequest(r => r.method() === 'POST' && r.url().includes('/rpc/admin_set_setting'))
+  await page.getByRole('button', { name: 'Vista hópa' }).click()
+  const payload = (await saveRequest).postDataJSON()
+  expect(payload.p_key).toBe('round_groupings_10')
+  expect(payload.p_value).toEqual({
+    version: 1,
+    groups: [
+      { teeTime: '15:30', playerIds: [1, 3, 4] },
+      { teeTime: '11:20', playerIds: [5, 6, 7, 8, 2] },
+    ],
+  })
+})
+
+test('unsaved grouping edits trigger the dirty navigation guard', async ({ page }) => {
+  await mockSupabase(page, { adminLogin: true, customRounds: [groupRound], customSignups: groupRoundSignups })
+  await page.goto('/#admin')
+  await page.getByLabel('Netfang').fill('[EMAIL]')
+  await page.getByLabel('Lykilorð').fill('test-password')
+  await page.getByRole('button', { name: 'Innskrá' }).click()
+  await expect(page.getByRole('heading', { name: 'Hópar' })).toBeVisible()
+
+  await page.getByLabel('Veldu hring fyrir hópa').selectOption('10')
+  await page.locator('.group-card').nth(0).getByLabel('Rástími hóps 1').fill('12:00')
+
+  let dialogMessage = ''
+  page.once('dialog', async dialog => {
+    dialogMessage = dialog.message()
+    await dialog.dismiss()
+  })
+  await page.getByRole('button', { name: 'Skráning' }).click()
+  expect(dialogMessage).toContain('Óvistaðar breytingar')
+  await expect(page.getByRole('heading', { name: 'Hópar' })).toBeVisible()
+})
+
+test('admin can reset manual groupings back to automatic', async ({ page }) => {
+  const groups = [
+    {
+      key: 'round_groupings_10',
+      value: { version: 1, groups: [{ teeTime: '11:00', playerIds: [1, 2, 3, 4] }] },
+    },
+  ]
+  await mockSupabase(page, { adminLogin: true, customRounds: [groupRound], customSignups: groupRoundSignups, groups })
+  await page.goto('/#admin')
+  await page.getByLabel('Netfang').fill('[EMAIL]')
+  await page.getByLabel('Lykilorð').fill('test-password')
+  await page.getByRole('button', { name: 'Innskrá' }).click()
+  await expect(page.getByRole('heading', { name: 'Hópar' })).toBeVisible()
+
+  await page.getByLabel('Veldu hring fyrir hópa').selectOption('10')
+
+  page.once('dialog', async dialog => {
+    expect(dialog.message()).toContain('sjálfvirka')
+    await dialog.accept()
+  })
+  const resetRequest = page.waitForRequest(r => r.method() === 'POST' && r.url().includes('/rpc/admin_set_setting'))
+  await page.getByRole('button', { name: 'Endurstilla á sjálfvirka' }).click()
+  const payload = (await resetRequest).postDataJSON()
+  expect(payload.p_key).toBe('round_groupings_10')
+  expect(payload.p_value).toEqual({ version: 1, groups: null })
 })
