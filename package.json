@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "oxlint src tests playwright.config.js --format=json",
+    "lint": "oxlint src tests playwright.config.js",
     "test": "playwright test",
     "test:ux": "playwright test",
     "preview": "vite preview"
