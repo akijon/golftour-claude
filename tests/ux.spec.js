@@ -491,6 +491,9 @@ test('admin can move players between groups and save via audited RPC', async ({ 
 
   await page.getByLabel('Veldu hring fyrir hópa').selectOption('10')
 
+  // All 8 signups are grouped by default → no Óflokkaðir pool should render.
+  await expect(page.locator('.groups-unassigned')).toHaveCount(0)
+
   // Default is 4/4 (players 1-4, 5-8). Move player 2 into group 2.
   const p2 = page.locator('.group-card').nth(0).locator('.group-row', { hasText: 'Leikmaður 2' })
   await p2.getByLabel(/Færa leikmann Leikmaður 2/).selectOption('1')
@@ -556,4 +559,29 @@ test('admin can reset manual groupings back to automatic', async ({ page }) => {
   const payload = (await resetRequest).postDataJSON()
   expect(payload.p_key).toBe('round_groupings_10')
   expect(payload.p_value).toEqual({ version: 1, groups: null })
+})
+
+test('switching rounds with unsaved grouping edits confirms before discarding', async ({ page }) => {
+  const otherRound = { id: 11, title: 'Annar Hringur', course: 'Annað Völlur', round_date: '2099-08-01', tee_time: '14:00:00', max_players: 20, notes: '' }
+  await mockSupabase(page, { adminLogin: true, customRounds: [groupRound, otherRound], customSignups: groupRoundSignups })
+  await page.goto('/#admin')
+  await page.getByLabel('Netfang').fill('[EMAIL]')
+  await page.getByLabel('Lykilorð').fill('test-password')
+  await page.getByRole('button', { name: 'Innskrá' }).click()
+  await expect(page.getByRole('heading', { name: 'Hópar' })).toBeVisible()
+
+  await page.getByLabel('Veldu hring fyrir hópa').selectOption('10')
+  await page.locator('.group-card').nth(0).getByLabel('Rástími hóps 1').fill('12:00')
+
+  let dialogMessage = ''
+  page.once('dialog', async dialog => {
+    dialogMessage = dialog.message()
+    await dialog.dismiss()
+  })
+  await page.getByLabel('Veldu hring fyrir hópa').selectOption('11')
+  expect(dialogMessage).toContain('Óvistaðar breytingar')
+
+  // Declining keeps the admin on the original round with edits intact.
+  await expect(page.getByLabel('Veldu hring fyrir hópa')).toHaveValue('10')
+  await expect(page.locator('.group-card').nth(0).getByLabel('Rástími hóps 1')).toHaveValue('12:00')
 })

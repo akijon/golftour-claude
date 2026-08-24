@@ -22,6 +22,9 @@ export default function GroupingsAdmin({ rounds, signups, players, groupings, re
 
   function open(rid) {
     const next = String(rid)
+    if (next !== roundId && dirtyRef.current.has('groups')) {
+      if (!window.confirm('Óvistaðar breytingar í hópum. Halda áfram?')) return
+    }
     setRoundId(next)
     setMsg('')
     dirtyRef.current.delete('groups')
@@ -125,7 +128,9 @@ export default function GroupingsAdmin({ rounds, signups, players, groupings, re
 
   // Player id -> player lookup for names/handicap.
   const playerById = id => players.find(p => String(p.id) === String(id))
-  const assigned = new Set((draft?.groups || []).flatMap(g => g.playerIds))
+  // Draft playerIds are numbers; normalize to strings so the Set matches the
+  // string lookup of signup.player_id (same normalization as grouping.js).
+  const assigned = new Set((draft?.groups || []).flatMap(g => g.playerIds.map(pid => String(pid))))
   const unassignedPlayers = list.filter(s => !assigned.has(String(s.player_id)))
 
   const groupSelect = (pid, fromGi) => (
