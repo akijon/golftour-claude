@@ -1,5 +1,27 @@
 import { test, expect } from '@playwright/test'
-import { calculateGroupSizes, groupSignups, addMinutesToTime } from '../src/grouping.js'
+import {
+  calculateGroupSizes,
+  groupSignups,
+  addMinutesToTime,
+  applyOverride,
+  buildDefaultOverride,
+  validateOverride,
+  groupingsFromStore,
+  resolveGrouping,
+  overrideKey,
+} from '../src/grouping.js'
+
+function makePlayers(n) {
+  return Array.from({ length: n }, (_, i) => ({ id: i + 1, name: `Player ${i + 1}`, handicap: 10 + i }))
+}
+
+function makeSignups(ids, { startMin = 0 } = {}) {
+  return ids.map((pid, i) => ({
+    id: 1000 + pid,
+    player_id: pid,
+    created_at: `2026-06-01T10:${String(startMin + i).padStart(2, '0')}:00Z`,
+  }))
+}
 
 test.describe('grouping algorithm (unit)', () => {
   test('edge cases: n < 3 and n == 5 have no groups', () => {
@@ -103,5 +125,116 @@ test.describe('grouping algorithm (unit)', () => {
 
     expect(result.groups).toHaveLength(1)
     expect(result.groups[0].teeTime).toBe(null)
+  })
+})
+
+test.describe('manual override (unit)', () => {
+  test('overrideKey and groupingsFromStore parse app_settings rows', () => {
+    expect(overrideKey(7)).toBe('round_groupings_7')
+
+    const rows = [
+      { key: 'round_groupings_3', value: { version: 1, groups: [{ teeTime: '15:30', playerIds: [1, 2] }] } },
+      { key: 'round_groupings_4', value: { version: 1, groups: null } }, // reset sentinel
+      { key: 'other_setting', value: { foo: 1 } }, // unrelated key
+      { key: 'round_groupings_abc', value: { groups: [1] } }, // non-numeric id
+      null,
+    ]
+    const parsed = groupingsFromStore(rows)
+    expect(Object.keys(parsed)).toEqual(['3'])
+    expect(parsed[3].groups).toHaveLength(1)
+  })
+
+  test('buildDefaultOverride mirrors automatic grouping (n=7 sizes 3,4)', () => {
+    const players = makePlayers(7)
+    const signups = makeSignups([1, 2, 3, 4, 5, 6, 7])
+    const round = { id: 1, tee_time: '15:30:00' }
+    const ov = buildDefaultOverride(signups, round, players)
+
+    expect(ov.groups.map(g => g.playerIds)).toEqual([[1, 2, 3], [4, 5, 6, 7]])
+    expect(ov.groups[0].teeTime).toBe('15:30')
+    expect(ov.groups[1].teeTime).toBe('15:38')
+  })
+
+  test('buildDefaultOverride suggests a 3+2 split for n=5 so it can be edited', () => {
+    const players = makePlayers(5)
+    const signups = makeSignups([1, 2, 3, 4, 5])
+    const round = { id: 1, tee_time: '15:30:00' }
+    const ov = buildDefaultOverride(signups, round, players)
+
+    expect(ov.groups.map(g => g.playerIds)).toEqual([[1, 2, 3], [4, 5]])
+  })
+
+  test('applyOverride renders groups in override order and honors stored tee times', () => {
+    const players = makePlayers(7)
+    const signups = makeSignups([1, 2, 3, 4, 5, 6])
+    const round = { id: 1, tee_time: '15:30:00' }
+    const override = {
+      version: 1,
+      groups: [
+        { teeTime: '15:30', playerIds: [3, 1] }, // order preserved, not signup order
+        { teeTime: null, playerIds: [2] }, // null → fall back to round-derived (15:30 + 8)
+        { teeTime: '12:00', playerIds: [9] }, // player 9 not signed up → dropped
+      ],
+    }
+    const { groups, unassigned, validSignups } = applyOverride(signups, round, players, override)
+
+    expect(groups).toHaveLength(3)
+    expect(groups[0].teeTime).toBe('15:30')
+    expect(groups[0].players.map(p => p.id)).toEqual([3, 1])
+    expect(groups[1].teeTime).toBe('15:38')
+    expect(groups[1].players.map(p => p.id)).toEqual([2])
+    expect(groups[2].players).toEqual([]) // dropped player 9
+
+    // 1, 2, 3 are grouped; 4, 5, 6 are not in the override → unassigned
+    expect(unassigned.map(u => u.player.id)).toEqual([4, 5, 6])
+    expect(validSignups).toHaveLength(6)
+    expect(groups[0].groupNumber).toBe(1)
+  })
+
+  test('validateOverride rejects duplicates, bad times, malformed shapes', () => {
+    expect(validateOverride(null).ok).toBe(false)
+    expect(validateOverride({}).ok).toBe(false)
+    expect(validateOverride({ version: 1, groups: 'nope' }).ok).toBe(false)
+
+    const dup = {
+      version: 1,
+      groups: [{ teeTime: '15:30', playerIds: [1, 2] }, { teeTime: null, playerIds: [2, 3] }],
+    }
+    const dupResult = validateOverride(dup)
+    expect(dupResult.ok).toBe(false)
+    expect(dupResult.errors[0]).toContain('duplicate')
+
+    const badTime = { version: 1, groups: [{ teeTime: '25:99', playerIds: [1] }] }
+    expect(validateOverride(badTime).ok).toBe(false)
+
+    const good = { version: 1, groups: [{ teeTime: '15:30', playerIds: [1, 2] }, { teeTime: null, playerIds: [3] }] }
+    expect(validateOverride(good).ok).toBe(true)
+  })
+
+  test('resolveGrouping uses override when present, automatic otherwise', () => {
+    const players = makePlayers(13)
+    const signups = makeSignups(Array.from({ length: 13 }, (_, i) => i + 1))
+    const round = { id: 10, tee_time: '15:30:00' }
+
+    // Without an override: automatic 3/3/3/4, no unassigned.
+    const auto = resolveGrouping(signups, round, players, null)
+    expect(auto.groups.map(g => g.players.length)).toEqual([3, 3, 3, 4])
+    expect(auto.unassigned).toEqual([])
+
+    // With an override: overridden group sizes and tee times, players not in the
+    // override surface as unassigned.
+    const override = {
+      version: 1,
+      groups: [
+        { teeTime: '11:00', playerIds: [1, 2, 3, 4, 5, 6] },
+        { teeTime: '11:20', playerIds: [7, 8, 9, 10] },
+      ],
+    }
+    const manual = resolveGrouping(signups, round, players, override)
+    expect(manual.impossibleNotice).toBe(false)
+    expect(manual.groups.map(g => g.players.length)).toEqual([6, 4])
+    expect(manual.groups[0].teeTime).toBe('11:00')
+    expect(manual.groups[1].teeTime).toBe('11:20')
+    expect(manual.unassigned.map(u => u.player.id)).toEqual([11, 12, 13])
   })
 })

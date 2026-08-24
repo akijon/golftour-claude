@@ -522,3 +522,38 @@ code { background: var(--cream); padding: 2px 6px; border-radius: 4px; font-size
 .score-grid li.not-signed { opacity: 0.5; }
 .score-grid li.signed-up { font-weight: 600; }
 .score-grid li.signed-up .sname::before { content: '● '; color: var(--fairway); font-size: 0.7rem; }
+
+/* ---- Manual grouping override ---- */
+.roster-group.unassigned { border-style: dashed; }
+.roster-group.unassigned .roster-group-title .group-tee { font-weight: 500; font-style: italic; }
+
+.group-editor { display: grid; gap: 14px; margin: 16px 0; }
+.group-card {
+  background: var(--cream); border: 1px solid var(--cream-line);
+  border-radius: 8px; padding: 12px 14px;
+}
+.group-card-head {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 8px; font-family: 'Archivo', sans-serif; font-weight: 700; color: var(--fairway);
+}
+.group-card-head label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.group-card-head input[type="time"] {
+  padding: 5px 8px; border: 1px solid var(--cream-line); border-radius: 6px;
+  font: 500 0.9rem 'IBM Plex Sans', sans-serif; background: var(--white); color: var(--ink);
+}
+.group-card-head .link { margin-left: auto; }
+.group-row { display: flex; align-items: center; gap: 10px; }
+.group-row .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.row-controls { display: flex; align-items: center; gap: 6px; }
+.row-controls select {
+  padding: 5px 8px; border: 1px solid var(--cream-line); border-radius: 6px;
+  font: 500 0.85rem 'IBM Plex Sans', sans-serif; background: var(--white); color: var(--ink);
+  max-width: 130px;
+}
+.icon-btn {
+  width: 30px; height: 30px; padding: 0; border: 1px solid var(--cream-line); border-radius: 6px;
+  background: var(--white); color: var(--flag-dark); font: 700 1rem 'IBM Plex Sans', sans-serif; cursor: pointer;
+}
+.icon-btn:hover:not(:disabled) { background: var(--cream); }
+.icon-btn:disabled { color: var(--muted); cursor: not-allowed; opacity: 0.6; }
+.admin-list li.list-label { justify-content: flex-start; background: transparent; font-weight: 600; color: var(--fairway); }
