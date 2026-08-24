@@ -2,8 +2,12 @@ import { useState } from 'react'
 import PlayerCombobox from './PlayerCombobox'
 import { supabase } from './supabase'
 import { fmtDate, fmtHcp, fmtTime, friendlyError, isPast } from './utils'
+import { groupSignups } from './grouping'
 
-function Roster({ list, players, maxPlayers }) {
+function Roster({ list, players, maxPlayers, round }) {
+  const { impossibleNotice, groups, validSignups } = groupSignups(list, round, players)
+  const hasGroups = groups.length > 0
+
   return (
     <details className="roster-details">
       <summary>
@@ -11,17 +15,42 @@ function Roster({ list, players, maxPlayers }) {
         <span className="roster-toggle" aria-hidden="true">Sýna lista</span>
       </summary>
       <div className="roster">
-        <ul>
-          {list.map(signup => {
-            const player = players.find(candidate => candidate.id === signup.player_id)
-            return player ? (
-              <li key={signup.id}>
-                {player.name}
-                {fmtHcp(player.handicap) !== null && <span className="hcp">{fmtHcp(player.handicap)}</span>}
-              </li>
-            ) : null
-          })}
-        </ul>
+        {hasGroups ? (
+          <div className="roster-groups">
+            {groups.map(group => (
+              <section key={group.groupNumber} className="roster-group" aria-label={`Hópur ${group.groupNumber}`}>
+                <div className="roster-group-title">
+                  <strong>Hópur {group.groupNumber}</strong>
+                  {group.teeTime && <span className="group-tee">Rástími {group.teeTime}</span>}
+                </div>
+                <ul>
+                  {group.items.map(({ signup, player }) => (
+                    <li key={signup.id}>
+                      {player.name}
+                      {fmtHcp(player.handicap) !== null && <span className="hcp">{fmtHcp(player.handicap)}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <>
+            {impossibleNotice && (
+              <p className="roster-notice" role="status">
+                Ekki er hægt að mynda 3- eða 4-manna hópa með 5 skráðum.
+              </p>
+            )}
+            <ul>
+              {validSignups.map(({ signup, player }) => (
+                <li key={signup.id}>
+                  {player.name}
+                  {fmtHcp(player.handicap) !== null && <span className="hcp">{fmtHcp(player.handicap)}</span>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         {list.length === 0 && <p className="empty">Enginn skráður enn — vertu fyrst(ur)!</p>}
       </div>
     </details>
@@ -62,7 +91,7 @@ function RoundCard({ round, number, players, signups, me, canSignup, busy, onTog
         </button>
       )}
       {past && <p className="past-label">Lokið</p>}
-      <Roster list={list} players={players} maxPlayers={round.max_players} />
+      <Roster list={list} players={players} maxPlayers={round.max_players} round={round} />
     </article>
   )
 }

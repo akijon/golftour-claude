@@ -206,6 +206,42 @@ body {
   font-size: 0.92rem; padding: 3px 0;
   border-bottom: 1px dotted var(--cream-line);
 }
+.roster-groups { display: grid; gap: 14px; margin-top: 6px; }
+.roster-group {
+  background: var(--cream);
+  border: 1px solid var(--cream-line);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.roster-group-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--cream-line);
+  font-family: 'Archivo', sans-serif;
+  font-variation-settings: 'wdth' 105, 'wght' 700;
+  font-size: 0.85rem;
+  color: var(--fairway);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.roster-group-title .group-tee {
+  font-size: 0.78rem;
+  color: var(--flag-dark);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.roster-notice {
+  background: #fdf6e3;
+  border: 1px solid #fae7b3;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 6px 0 10px;
+  font-size: 0.85rem;
+  color: #795548;
+}
 
 .cta {
   margin: 16px 20px 0; padding: 12px 28px;
