@@ -10,7 +10,7 @@ Golf tournament signup app for the SHS (Slökkvilið höfuðborgarsvæðisins) g
 creating, editing, and removing rounds.
 
 - **Owner:** Aki (server administrator, homelab: UniFi UCG Fiber, gerpi.org)
-- **Production URL:** https://eldturinn.khalipa.net (custom domain on the
+- **Production URL:** https://eldtur.khalipa.net (custom domain on the
   golftour-claude Worker; workers.dev fallback: golftour-claude.workers.dev)
 - **UI language:** Icelandic
 - **Player source of truth:** `golfhopur-2026-uppfært-19_5_2026.xlsx` (58 players) + 2 added 2026-07-21: Ólafur Halldór Torfason (from CSV, gb 9-3907), Árni Oddsson (aka "Árni Odds" in GameBook, hcp 20, no gb id). DB now 60 players.
