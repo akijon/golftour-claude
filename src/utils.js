@@ -24,10 +24,14 @@ export function friendlyError(err) {
     return 'Rangt netfang eða lykilorð.'
   if (msg.includes('network') || msg.includes('fetch') || msg.includes('connection'))
     return 'Tenging mistókst. Athugaðu internetið.'
-  if (msg.includes('jwt') || msg.includes('unauthorized') || msg.includes('permission') || msg.includes('rls') || msg.includes('policy'))
+  if (msg.includes('jwt') || msg.includes('unauthorized') || msg.includes('permission') || msg.includes('forbidden') || msg.includes('rls') || msg.includes('policy'))
     return 'Þú hefur ekki aðgang að þessari aðgerð.'
   if (msg.includes('rate limit') || msg.includes('too many'))
     return 'Of margar tilraunir. Reyndu aftur eftir stutta stund.'
+  if (msg.includes('player name is required'))
+    return 'Nafn leikmanns er nauðsynlegt.'
+  if (msg.includes('handicap must be a number') || msg.includes('invalid input syntax for type numeric'))
+    return 'Forgjöf verður að vera tala, t.d. 12,4.'
   if (msg.includes('duplicate') || msg.includes('already exists') || msg.includes('unique constraint'))
     return 'Þessi færsla er þegar til.'
   if (msg.includes('not found') || msg.includes('does not exist'))

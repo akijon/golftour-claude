@@ -317,23 +317,34 @@ code { background: var(--cream); padding: 2px 6px; border-radius: 4px; font-size
   padding: 2px 8px; border-radius: 999px; font-size: 0.75rem;
 }
 
-/* ---- Players admin & sync ---- */
-.sync-row { display: flex; gap: 10px; flex-wrap: wrap; }
-.sync-row input {
-  flex: 1; min-width: 180px; padding: 10px 12px;
-  border: 1px solid var(--cream-line); border-radius: 8px;
-  font: 500 1rem 'IBM Plex Sans', sans-serif; background: var(--cream);
+/* ---- Players admin ---- */
+.admin-subtitle {
+  margin: 24px 0 12px;
+  color: var(--fairway);
+  font: 700 1rem 'Archivo', sans-serif;
 }
-.sync-row .cta { margin: 0; }
-.sync-details { margin-top: 10px; font-size: 0.88rem; }
-.sync-details small { color: var(--muted); display: block; }
-.admin-list.players { margin-top: 18px; max-height: 480px; overflow-y: auto; }
-.player-edit { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.panel-title + .admin-subtitle { margin-top: 0; }
+.player-create { padding-bottom: 4px; }
+.form-grid .checkbox-field {
+  flex-direction: row; align-items: center; align-self: end; gap: 8px;
+  min-height: 42px; color: var(--ink);
+}
+.form-grid .checkbox-field input,
+.player-edit .checkbox-field input {
+  width: 18px; height: 18px; padding: 0; accent-color: var(--fairway);
+}
+.player-list-title { border-top: 1px solid var(--cream-line); padding-top: 20px; }
+.admin-list.players { margin-top: 0; max-height: 480px; overflow-y: auto; }
+.player-edit { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; width: 100%; }
 .player-edit label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.player-edit label.checkbox-field { flex-direction: row; align-items: center; color: var(--ink); padding-bottom: 8px; }
 .player-edit input {
   width: 110px; padding: 8px 10px; border: 1px solid var(--cream-line);
   border-radius: 8px; font: 500 0.95rem 'IBM Plex Sans', sans-serif; background: var(--cream);
+  color: var(--ink);
 }
+.player-edit .player-name-field input { width: min(220px, 70vw); }
+.removed-players { margin-top: 0; }
 
 /* ---- Standings table ---- */
 .rule-note { margin: 0 0 14px; font-size: 0.88rem; color: var(--muted); }

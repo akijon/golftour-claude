@@ -5,10 +5,20 @@ const players = Array.from({ length: 24 }, (_, index) => ({
   id: index + 1,
   name: index === 0 ? 'Margrét S. Sævarsdóttir' : `Leikmaður ${index + 1}`,
   position: 'Slökkvari',
-  active: true,
+  active: index !== 19,
   deleted_at: null,
   handicap: index === 0 ? 12.4 : 8 + index / 10,
 }))
+
+const deletedPlayer = {
+  id: 99,
+  name: 'Fjarlægður Leikmaður',
+  position: '',
+  active: false,
+  deleted_at: '2026-08-20T12:00:00Z',
+  handicap: null,
+  golfbox_id: null,
+}
 
 const rounds = [
   { id: 1, title: 'Opnunarhringur', course: 'Grafarholt', round_date: '2020-05-29', tee_time: '16:30:00', max_players: 24, notes: 'Mæting 30 mínútum fyrir rástíma.' },
@@ -35,7 +45,7 @@ const scores = rounds.slice(0, 3).flatMap(round =>
   })),
 )
 
-async function mockSupabase(page, { signupFailure = false, withdrawalFailure = false } = {}) {
+async function mockSupabase(page, { adminLogin = false, signupFailure = false, withdrawalFailure = false } = {}) {
   await page.route('http://127.0.0.1:9999/**', async route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -49,10 +59,29 @@ async function mockSupabase(page, { signupFailure = false, withdrawalFailure = f
     }
 
     let body = []
-    if (url.pathname.includes('/rest/v1/players')) body = players
+    if (url.pathname.includes('/rest/v1/players')) {
+      const publicRoster = url.searchParams.get('active') === 'eq.true' || url.searchParams.get('deleted_at') === 'is.null'
+      body = publicRoster ? players : [...players, deletedPlayer]
+    }
     else if (url.pathname.includes('/rest/v1/rounds')) body = rounds
     else if (url.pathname.includes('/rest/v1/signups')) body = signups
     else if (url.pathname.includes('/rest/v1/scores')) body = scores
+    else if (url.pathname.includes('/auth/v1/token') && adminLogin) {
+      body = {
+        access_token: 'test-access-token',
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'test-refresh-token',
+        user: {
+          id: '00000000-0000-0000-0000-000000000001',
+          aud: 'authenticated',
+          role: 'authenticated',
+          email: 'admin@example.com',
+          app_metadata: { provider: 'email', providers: ['email'] },
+          user_metadata: {},
+        },
+      }
+    }
     else if (url.pathname.includes('/auth/v1/')) body = { user: null, session: null }
 
     await route.fulfill({ status: 200, contentType: 'application/json', headers, body: JSON.stringify(body) })
@@ -95,6 +124,18 @@ test('mobile signup keeps upcoming actions prominent and completed rounds collap
   const completedRounds = page.locator('details.past-rounds')
   await expect(completedRounds).not.toHaveAttribute('open', '')
   await expect(completedRounds.getByText('Opnunarhringur')).not.toBeVisible()
+})
+
+test('inactive players stay in rosters but cannot be selected for signup', async ({ page }) => {
+  await openApp(page)
+
+  const playerPicker = page.locator('#who')
+  await playerPicker.fill('Leikmaður 20')
+  await expect(page.getByRole('option', { name: /Leikmaður 20/ })).toHaveCount(0)
+
+  const firstUpcoming = page.locator('.upcoming-rounds .card').first()
+  await firstUpcoming.locator('details.roster-details > summary').click()
+  await expect(firstUpcoming.getByText('Leikmaður 20')).toBeVisible()
 })
 
 test('a failed signup is announced and leaves the action available to retry', async ({ page }) => {
@@ -174,4 +215,64 @@ test('primary views have no serious automated accessibility violations', async (
     const blocking = results.violations.filter(violation => ['serious', 'critical'].includes(violation.impact))
     expect(blocking, `${hash} at ${width}px`).toEqual([])
   }
+})
+
+test('admin player management renders add and restore controls', async ({ page }) => {
+  await mockSupabase(page, { adminLogin: true })
+  await page.goto('/#admin')
+
+  await page.getByLabel('Netfang').fill('admin@example.com')
+  await page.getByLabel('Lykilorð').fill('test-password')
+  await page.getByRole('button', { name: 'Innskrá' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Leikmenn & forgjöf' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Bæta við leikmann' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Fjarlægðir leikmenn' })).toBeVisible()
+  await expect(page.getByText('Fjarlægður Leikmaður')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Endurheimta' })).toBeVisible()
+
+  const playerPanel = page.getByRole('heading', { name: 'Leikmenn & forgjöf' }).locator('..')
+  const createForm = playerPanel.locator('form')
+  await createForm.getByLabel('Nafn').fill('Nýr Leikmaður')
+  await createForm.getByLabel('Staða').fill('42')
+  await createForm.getByLabel('Fgj.').fill('12,4')
+  await createForm.getByLabel('GolfBox ID').fill('9-9999')
+
+  const createRequestPromise = page.waitForRequest(request => request.url().includes('/rpc/admin_create_player'))
+  await createForm.getByRole('button', { name: 'Bæta við leikmann' }).click()
+  const createRequest = await createRequestPromise
+  expect(createRequest.postDataJSON()).toEqual({
+    p_name: 'Nýr Leikmaður',
+    p_position: '42',
+    p_active: true,
+    p_handicap: 12.4,
+    p_golfbox_id: '9-9999',
+  })
+
+  let firstPlayer = playerPanel.locator('.admin-list.players > li').first()
+  await firstPlayer.getByRole('button', { name: 'Breyta' }).click()
+  await firstPlayer.getByLabel('Nafn').fill('Margrét Uppfærð')
+  page.once('dialog', async dialog => {
+    expect(dialog.message()).toContain('Fyrri skráningar og stig haldast tengd leikmanninum.')
+    await dialog.accept()
+  })
+
+  const updateRequestPromise = page.waitForRequest(request => request.url().includes('/rpc/admin_update_player'))
+  await firstPlayer.getByRole('button', { name: 'Vista', exact: true }).click()
+  const updateRequest = await updateRequestPromise
+  expect(updateRequest.postDataJSON()).toMatchObject({
+    p_player_id: 1,
+    p_name: 'Margrét Uppfærð',
+    p_active: true,
+  })
+
+  firstPlayer = playerPanel.locator('.admin-list.players > li').first()
+  await firstPlayer.getByRole('button', { name: 'Fjarlægja' }).click()
+  const removeRequestPromise = page.waitForRequest(request => request.url().includes('/rpc/admin_soft_delete_player'))
+  await firstPlayer.getByRole('button', { name: 'Já' }).click()
+  expect((await removeRequestPromise).postDataJSON()).toEqual({ p_player_id: 1 })
+
+  const restoreRequestPromise = page.waitForRequest(request => request.url().includes('/rpc/admin_restore_player'))
+  await playerPanel.getByRole('button', { name: 'Endurheimta' }).click()
+  expect((await restoreRequestPromise).postDataJSON()).toEqual({ p_player_id: 99 })
 })

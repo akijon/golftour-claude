@@ -91,13 +91,15 @@ export default function RoundsView({ players, rounds, signups, me, setMe, reload
     }
   }
 
+  const activePlayers = players.filter(player => player.active)
+  const eligibleMe = activePlayers.some(player => String(player.id) === String(me)) ? me : ''
   const upcoming = rounds.filter(round => !isPast(round.round_date))
   const completed = rounds.filter(round => isPast(round.round_date))
   const roundNumber = round => rounds.findIndex(candidate => candidate.id === round.id) + 1
 
   return (
     <>
-      <PlayerCombobox players={players} me={me} setMe={setMe} />
+      <PlayerCombobox players={activePlayers} me={eligibleMe} setMe={setMe} />
       {actionError && <p className="status error" role="alert">{actionError}</p>}
 
       {rounds.length === 0 && <p className="status">Engir hringir skráðir enn. Bættu við á „Stjórnun“ síðunni.</p>}
@@ -108,7 +110,7 @@ export default function RoundsView({ players, rounds, signups, me, setMe, reload
           <div className="cards">
             {upcoming.map(round => (
               <RoundCard key={round.id} round={round} number={roundNumber(round)} players={players} signups={signups}
-                me={me} busy={busy} onToggle={toggle} />
+                me={eligibleMe} busy={busy} onToggle={toggle} />
             ))}
           </div>
         </section>
@@ -123,7 +125,7 @@ export default function RoundsView({ players, rounds, signups, me, setMe, reload
           <div className="cards">
             {completed.map(round => (
               <RoundCard key={round.id} round={round} number={roundNumber(round)} players={players} signups={signups}
-                me={me} busy={busy} onToggle={toggle} />
+                me={eligibleMe} busy={busy} onToggle={toggle} />
             ))}
           </div>
         </details>
