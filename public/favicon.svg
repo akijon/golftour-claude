@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Golfhópur SHS">
-  <!-- Palette mirrors src/index.css: --fairway #0e3b2e, --flag #c8362b, --cream #f5f1e6 -->
-  <rect width="32" height="32" rx="7" fill="#0e3b2e"/>
-  <!-- Green: a single light shape reads clearly at 16px against the dark ground -->
+  <!-- Palette mirrors src/index.css: --fairway crimson #7c231e, --flag gold #e4c665, --cream #f5f1e6 -->
+  <rect width="32" height="32" rx="7" fill="#7c231e"/>
+  <!-- Green-free golf hole on crimson ground -->
   <ellipse cx="16" cy="24" rx="10.5" ry="3.4" fill="#f5f1e6" opacity=".22"/>
   <!-- Hole -->
-  <ellipse cx="19.6" cy="24" rx="2.5" ry="1" fill="#092b21"/>
+  <ellipse cx="19.6" cy="24" rx="2.5" ry="1" fill="#5d1a16"/>
   <!-- Pin -->
   <rect x="18.9" y="7" width="1.5" height="17" rx=".75" fill="#f5f1e6"/>
-  <!-- Pennant -->
-  <path d="M18.9 7.6 L9.2 11.1 L18.9 14.6 Z" fill="#c8362b"/>
+  <!-- Pennant (gold) -->
+  <path d="M18.9 7.6 L9.2 11.1 L18.9 14.6 Z" fill="#e4c665"/>
   <!-- Ball -->
   <circle cx="10.4" cy="23.1" r="2.5" fill="#fffdf7"/>
 </svg>

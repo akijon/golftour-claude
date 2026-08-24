@@ -1,0 +1,53 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {"image": "br-background.jpg"}
+  },
+  "4": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {"ckpt_name": "flux1-dev-fp8.safetensors"}
+  },
+  "13": {
+    "class_type": "VAELoader",
+    "inputs": {"vae_name": "ae.safetensors"}
+  },
+  "14": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {"clip_name1": "clip_l.safetensors", "clip_name2": "t5xxl_fp8_e4m3fn.safetensors", "type": "flux"}
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {"text": "PROMPT_PLACEHOLDER", "clip": ["14", 0]}
+  },
+  "6": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 2026,
+      "steps": 28,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.82,
+      "model": ["4", 0],
+      "positive": ["5", 0],
+      "negative": ["9", 0],
+      "latent_image": ["12", 0]
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {"samples": ["6", 0], "vae": ["13", 0]}
+  },
+  "9": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {"conditioning": ["5", 0]}
+  },
+  "12": {
+    "class_type": "VAEEncode",
+    "inputs": {"pixels": ["1", 0], "vae": ["13", 0]}
+  },
+  "10": {
+    "class_type": "SaveImage",
+    "inputs": {"filename_prefix": "flux_img2img_logo", "images": ["8", 0]}
+  }
+}

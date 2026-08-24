@@ -128,7 +128,7 @@ function Shell({ view, setView, children }) {
       <header className="masthead">
         <div className="masthead-inner">
           <div className="brand">
-            <span className="brand-flag" aria-hidden="true" />
+            <img className="brand-crest" src="/eldturin-crest.png" alt="Eldtúrinn merki" />
             <div>
               <h1>Golfhópur SHS</h1>
               <p className="season">Sumarið 2026 · 5 hringir</p>
