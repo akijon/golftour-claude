@@ -106,7 +106,7 @@ export default function App() {
         <Standings players={players} rounds={rounds} scores={scores} />
       )}
       {view === 'admin' && (
-        <AdminGate>
+        <AdminGate dirtyRef={adminDirtyRef}>
           <AdminView rounds={rounds} signups={signups} players={players} scores={scores} reload={load} dirtyRef={adminDirtyRef} onToast={showToast} />
         </AdminGate>
       )}
@@ -246,7 +246,7 @@ function AdminView({ rounds, signups, players, scores, reload, dirtyRef, onToast
   )
 }
 
-function AdminGate({ children }) {
+function AdminGate({ children, dirtyRef }) {
   const [session, setSession] = useState(undefined)
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
@@ -254,10 +254,14 @@ function AdminGate({ children }) {
   const [msg, setMsg] = useState('')
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
+    const updateSession = nextSession => {
+      if (!nextSession) dirtyRef.current.clear()
+      setSession(nextSession)
+    }
+    supabase.auth.getSession().then(({ data }) => updateSession(data.session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => updateSession(s))
     return () => sub.subscription.unsubscribe()
-  }, [])
+  }, [dirtyRef])
 
   async function login() {
     setBusy(true); setMsg('')

@@ -343,3 +343,26 @@ test('player edits trigger the dirty navigation guard', async ({ page }) => {
 
   await expect(firstPlayer.getByRole('button', { name: 'Vista', exact: true })).toBeVisible()
 })
+
+test('signing out clears admin dirty markers', async ({ page }) => {
+  await mockSupabase(page, { adminLogin: true })
+  await page.goto('/#admin')
+  await page.getByLabel('Netfang').fill('admin@example.com')
+  await page.getByLabel('Lykilorð').fill('test-password')
+  await page.getByRole('button', { name: 'Innskrá' }).click()
+
+  const playerPanel = page.getByRole('heading', { name: 'Leikmenn & forgjöf' }).locator('..')
+  await playerPanel.locator('form').getByLabel('Nafn').fill('Óvistaður Leikmaður')
+  await page.getByRole('button', { name: 'Útskrá' }).click()
+  await expect(page.getByRole('heading', { name: 'Aðgangur stjórnanda' })).toBeVisible()
+
+  let dialogMessage = ''
+  page.once('dialog', async dialog => {
+    dialogMessage = dialog.message()
+    await dialog.dismiss()
+  })
+  await page.getByRole('button', { name: 'Skráning' }).click()
+
+  expect(dialogMessage).toBe('')
+  await expect(page.getByText('Hver ert þú?')).toBeVisible()
+})
