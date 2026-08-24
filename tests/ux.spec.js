@@ -45,8 +45,8 @@ const scores = rounds.slice(0, 3).flatMap(round =>
   })),
 )
 
-async function mockSupabase(page, { adminLogin = false, signupFailure = false, withdrawalFailure = false } = {}) {
-  await page.route('http://127.0.0.1:9999/**', async route => {
+async function mockSupabase(page, { adminLogin = false, signupFailure = false, withdrawalFailure = false, customRounds = null, customSignups = null } = {}) {
+  await page.route(/http:\/\/(localhost|127\.0\.0\.1):9999\/.*/, async route => {
     const request = route.request()
     const url = new URL(request.url())
     const headers = { 'access-control-allow-origin': '*' }
@@ -63,8 +63,8 @@ async function mockSupabase(page, { adminLogin = false, signupFailure = false, w
       const publicRoster = url.searchParams.get('active') === 'eq.true' || url.searchParams.get('deleted_at') === 'is.null'
       body = publicRoster ? players : [...players, deletedPlayer]
     }
-    else if (url.pathname.includes('/rest/v1/rounds')) body = rounds
-    else if (url.pathname.includes('/rest/v1/signups')) body = signups
+    else if (url.pathname.includes('/rest/v1/rounds')) body = customRounds || rounds
+    else if (url.pathname.includes('/rest/v1/signups')) body = customSignups || signups
     else if (url.pathname.includes('/rest/v1/scores')) body = scores
     else if (url.pathname.includes('/auth/v1/token') && adminLogin) {
       body = {
@@ -76,7 +76,7 @@ async function mockSupabase(page, { adminLogin = false, signupFailure = false, w
           id: '00000000-0000-0000-0000-000000000001',
           aud: 'authenticated',
           role: 'authenticated',
-          email: 'admin@example.com',
+          email: '[EMAIL]',
           app_metadata: { provider: 'email', providers: ['email'] },
           user_metadata: {},
         },
@@ -124,6 +124,77 @@ test('mobile signup keeps upcoming actions prominent and completed rounds collap
   const completedRounds = page.locator('details.past-rounds')
   await expect(completedRounds).not.toHaveAttribute('open', '')
   await expect(completedRounds.getByText('Opnunarhringur')).not.toBeVisible()
+})
+
+test('grouped roster displays 4 groups with sizes 3/3/3/4 and tee times for 13 signups', async ({ page }) => {
+  const customRounds = [
+    { id: 10, title: 'Test 13 Signups', course: 'Testvöllur', round_date: '2099-07-01', tee_time: '15:30:00', max_players: 20, notes: '' },
+  ]
+  const customSignups = Array.from({ length: 13 }, (_, i) => ({
+    id: 500 + i,
+    round_id: 10,
+    player_id: i + 1,
+    created_at: `2026-06-01T10:${String(i).padStart(2, '0')}:00Z`,
+  }))
+
+  await mockSupabase(page, { customRounds, customSignups })
+  await page.goto('/#rounds')
+  await expect(page.getByText('Hver ert þú?')).toBeVisible()
+
+  const card = page.locator('.upcoming-rounds .card').first()
+  await card.locator('details.roster-details > summary').click()
+
+  // Verify 4 groups exist
+  const groupHeadings = card.locator('.roster-group-title')
+  await expect(groupHeadings).toHaveCount(4)
+
+  // Verify group names and tee times
+  await expect(groupHeadings.nth(0)).toContainText('Hópur 1')
+  await expect(groupHeadings.nth(0)).toContainText('Rástími 15:30')
+  await expect(groupHeadings.nth(1)).toContainText('Hópur 2')
+  await expect(groupHeadings.nth(1)).toContainText('Rástími 15:38')
+  await expect(groupHeadings.nth(2)).toContainText('Hópur 3')
+  await expect(groupHeadings.nth(2)).toContainText('Rástími 15:46')
+  await expect(groupHeadings.nth(3)).toContainText('Hópur 4')
+  await expect(groupHeadings.nth(3)).toContainText('Rástími 15:54')
+
+  // Verify group sizes: 3, 3, 3, 4
+  const groups = card.locator('.roster-group')
+  await expect(groups.nth(0).locator('li')).toHaveCount(3)
+  await expect(groups.nth(1).locator('li')).toHaveCount(3)
+  await expect(groups.nth(2).locator('li')).toHaveCount(3)
+  await expect(groups.nth(3).locator('li')).toHaveCount(4)
+
+  // Verify earliest signups in group 1 (Margrét S. Sævarsdóttir = Player 1, Leikmaður 2, Leikmaður 3)
+  await expect(groups.nth(0)).toContainText('Margrét S. Sævarsdóttir')
+  await expect(groups.nth(0)).toContainText('Leikmaður 2')
+  await expect(groups.nth(0)).toContainText('Leikmaður 3')
+})
+
+test('impossible 5-man signup shows notice and flat roster', async ({ page }) => {
+  const customRounds = [
+    { id: 10, title: 'Test 5 Signups', course: 'Testvöllur', round_date: '2099-07-01', tee_time: '15:30:00', max_players: 20, notes: '' },
+  ]
+  const customSignups = Array.from({ length: 5 }, (_, i) => ({
+    id: 500 + i,
+    round_id: 10,
+    player_id: i + 1,
+    created_at: `2026-06-01T10:${String(i).padStart(2, '0')}:00Z`,
+  }))
+
+  await mockSupabase(page, { customRounds, customSignups })
+  await page.goto('/#rounds')
+  await expect(page.getByText('Hver ert þú?')).toBeVisible()
+
+  const card = page.locator('.upcoming-rounds .card').first()
+  await card.locator('details.roster-details > summary').click()
+
+  // Verify notice is visible
+  await expect(card.locator('.roster-notice')).toContainText('Ekki er hægt að mynda 3- eða 4-manna hópa með 5 skráðum.')
+  // No grouped sections
+  await expect(card.locator('.roster-group-title')).toHaveCount(0)
+  // Flat list has 5 players
+  await expect(card.locator('.roster ul li')).toHaveCount(5)
 })
 
 test('inactive players stay in rosters but cannot be selected for signup', async ({ page }) => {
