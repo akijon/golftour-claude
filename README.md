@@ -1,6 +1,6 @@
 # Golfhópur SHS — Eldtúrinn 2026
 
-**Vefslóð:** https://eldturinn.khalipa.net
+**Vefslóð:** https://eldtur.khalipa.net
 
 Skráningar- og stigakerfi fyrir 5 golfhringi sumarsins. React + Vite + Supabase,
 hýst sem Cloudflare Worker (static assets), auto-deploy frá `main`.

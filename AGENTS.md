@@ -153,7 +153,7 @@ repo-connected via Workers Builds):
   `VITE_SUPABASE_ANON_KEY`.
 - Deploy command: `npx wrangler deploy`. Every push to `main` = production
   deploy — `npm run build` must pass clean first.
-- Custom domain eldturinn.khalipa.net attached via Worker -> Settings ->
+- Custom domain eldtur.khalipa.net attached via Worker -> Settings ->
   Domains & Routes (workers.dev fallback also live).
 
 For the historical Pages→Workers migration and the removed GolfBox
