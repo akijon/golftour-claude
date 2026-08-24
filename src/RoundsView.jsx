@@ -28,7 +28,7 @@ function Roster({ list, players, maxPlayers }) {
   )
 }
 
-function RoundCard({ round, number, players, signups, me, busy, onToggle }) {
+function RoundCard({ round, number, players, signups, me, canSignup, busy, onToggle }) {
   const list = signups.filter(signup => signup.round_id === round.id)
   const signedUp = me && list.some(signup => String(signup.player_id) === String(me))
   const full = round.max_players && list.length >= round.max_players && !signedUp
@@ -51,12 +51,14 @@ function RoundCard({ round, number, players, signups, me, busy, onToggle }) {
       {!past && (
         <button
           className={signedUp ? 'cta out' : 'cta'}
-          disabled={!me || busy === round.id || full}
+          disabled={!me || busy === round.id || full || (!canSignup && !signedUp)}
           onClick={() => onToggle(round, signedUp)}
         >
           {busy === round.id
             ? signedUp ? 'Afskrái…' : 'Skrái…'
-            : !me ? 'Veldu nafn fyrst' : full ? 'Fullbókað' : signedUp ? 'Afskrá mig' : 'Skrá mig'}
+            : !me ? 'Veldu nafn fyrst'
+              : !canSignup && !signedUp ? 'Óvirkur í skráningu'
+                : full ? 'Fullbókað' : signedUp ? 'Afskrá mig' : 'Skrá mig'}
         </button>
       )}
       {past && <p className="past-label">Lokið</p>}
@@ -68,16 +70,20 @@ function RoundCard({ round, number, players, signups, me, busy, onToggle }) {
 export default function RoundsView({ players, rounds, signups, me, setMe, reload, onToast }) {
   const [busy, setBusy] = useState(null)
   const [actionError, setActionError] = useState('')
+  const activePlayers = players.filter(player => player.active)
+  const selectedPlayer = players.find(player => String(player.id) === String(me))
+  const selectedMe = selectedPlayer ? me : ''
+  const canSignup = Boolean(selectedPlayer?.active)
 
   async function toggle(round, signedUp) {
-    if (!me) return
+    if (!selectedMe || (!signedUp && !canSignup)) return
     setBusy(round.id)
     setActionError('')
 
     try {
       const result = signedUp
-        ? await supabase.from('signups').delete().eq('round_id', round.id).eq('player_id', me)
-        : await supabase.from('signups').insert({ round_id: round.id, player_id: Number(me) })
+        ? await supabase.from('signups').delete().eq('round_id', round.id).eq('player_id', selectedMe)
+        : await supabase.from('signups').insert({ round_id: round.id, player_id: Number(selectedMe) })
 
       if (result.error) throw result.error
 
@@ -91,15 +97,13 @@ export default function RoundsView({ players, rounds, signups, me, setMe, reload
     }
   }
 
-  const activePlayers = players.filter(player => player.active)
-  const eligibleMe = activePlayers.some(player => String(player.id) === String(me)) ? me : ''
   const upcoming = rounds.filter(round => !isPast(round.round_date))
   const completed = rounds.filter(round => isPast(round.round_date))
   const roundNumber = round => rounds.findIndex(candidate => candidate.id === round.id) + 1
 
   return (
     <>
-      <PlayerCombobox players={activePlayers} me={eligibleMe} setMe={setMe} />
+      <PlayerCombobox players={players} selectablePlayers={activePlayers} me={selectedMe} setMe={setMe} />
       {actionError && <p className="status error" role="alert">{actionError}</p>}
 
       {rounds.length === 0 && <p className="status">Engir hringir skráðir enn. Bættu við á „Stjórnun“ síðunni.</p>}
@@ -110,7 +114,7 @@ export default function RoundsView({ players, rounds, signups, me, setMe, reload
           <div className="cards">
             {upcoming.map(round => (
               <RoundCard key={round.id} round={round} number={roundNumber(round)} players={players} signups={signups}
-                me={eligibleMe} busy={busy} onToggle={toggle} />
+                me={selectedMe} canSignup={canSignup} busy={busy} onToggle={toggle} />
             ))}
           </div>
         </section>
@@ -125,7 +129,7 @@ export default function RoundsView({ players, rounds, signups, me, setMe, reload
           <div className="cards">
             {completed.map(round => (
               <RoundCard key={round.id} round={round} number={roundNumber(round)} players={players} signups={signups}
-                me={eligibleMe} busy={busy} onToggle={toggle} />
+                me={selectedMe} canSignup={canSignup} busy={busy} onToggle={toggle} />
             ))}
           </div>
         </details>

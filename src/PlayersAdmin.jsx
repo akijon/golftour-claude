@@ -46,8 +46,9 @@ function playerPayload(form) {
   }
 }
 
-function PlayerFields({ form, setForm, disabled = false }) {
+function PlayerFields({ form, setForm, onDirty, disabled = false }) {
   function set(key, value) {
+    onDirty()
     setForm(current => ({ ...current, [key]: value }))
   }
 
@@ -78,7 +79,7 @@ function PlayerFields({ form, setForm, disabled = false }) {
   )
 }
 
-export default function PlayersAdmin({ reload, onToast }) {
+export default function PlayersAdmin({ reload, dirtyRef, onToast }) {
   const [players, setPlayers] = useState([])
   const [createForm, setCreateForm] = useState(formFromPlayer())
   const [edit, setEdit] = useState(null)
@@ -112,6 +113,7 @@ export default function PlayersAdmin({ reload, onToast }) {
       const payload = playerPayload(createForm)
       await createPlayer(payload)
       setCreateForm(formFromPlayer())
+      dirtyRef.current.delete('player-create')
       await refreshPlayers()
       onToast(`${payload.name} bætt við`)
     } catch (error) {
@@ -123,7 +125,13 @@ export default function PlayersAdmin({ reload, onToast }) {
 
   function startEdit(player) {
     setEdit({ id: player.id, originalName: player.name, ...formFromPlayer(player) })
+    dirtyRef.current.add('player-edit')
     setMsg('')
+  }
+
+  function cancelEdit() {
+    setEdit(null)
+    dirtyRef.current.delete('player-edit')
   }
 
   async function saveEdit() {
@@ -148,6 +156,7 @@ export default function PlayersAdmin({ reload, onToast }) {
     try {
       await updatePlayer(edit.id, payload)
       setEdit(null)
+      dirtyRef.current.delete('player-edit')
       await refreshPlayers()
       onToast('Leikmaður uppfærður')
     } catch (error) {
@@ -196,7 +205,8 @@ export default function PlayersAdmin({ reload, onToast }) {
       <h3 className="admin-subtitle">Bæta við leikmann</h3>
       <form onSubmit={addPlayer} noValidate>
         <div className="form-grid player-create">
-          <PlayerFields form={createForm} setForm={setCreateForm} disabled={busy === 'create'} />
+          <PlayerFields form={createForm} setForm={setCreateForm}
+            onDirty={() => dirtyRef.current.add('player-create')} disabled={busy === 'create'} />
         </div>
         <div className="form-actions">
           <button className="cta" type="submit" disabled={busy === 'create'}>
@@ -215,11 +225,12 @@ export default function PlayersAdmin({ reload, onToast }) {
           <li key={player.id} className={edit?.id === player.id ? 'editing' : ''}>
             {edit?.id === player.id ? (
               <div className="player-edit">
-                <PlayerFields form={edit} setForm={setEdit} disabled={busy === `edit-${player.id}`} />
+                <PlayerFields form={edit} setForm={setEdit}
+                  onDirty={() => dirtyRef.current.add('player-edit')} disabled={busy === `edit-${player.id}`} />
                 <button className="link" type="button" disabled={busy === `edit-${player.id}`} onClick={saveEdit}>
                   {busy === `edit-${player.id}` ? 'Vista…' : 'Vista'}
                 </button>
-                <button className="link" type="button" onClick={() => setEdit(null)}>Hætta við</button>
+                <button className="link" type="button" onClick={cancelEdit}>Hætta við</button>
               </div>
             ) : (
               <>

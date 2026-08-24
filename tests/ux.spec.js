@@ -138,6 +138,30 @@ test('inactive players stay in rosters but cannot be selected for signup', async
   await expect(firstUpcoming.getByText('Leikmaður 20')).toBeVisible()
 })
 
+test('inactive selected players can withdraw but cannot create new signups', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('shs_player_id', '20'))
+  await mockSupabase(page)
+  await page.goto('/#rounds')
+  await expect(page.getByText('Hver ert þú?')).toBeVisible()
+
+  await expect(page.locator('#who')).toHaveAttribute('placeholder', 'Leikmaður 20')
+
+  const signedUpRound = page.locator('.upcoming-rounds .card').first()
+  const withdrawal = signedUpRound.getByRole('button', { name: 'Afskrá mig' })
+  await expect(withdrawal).toBeEnabled()
+
+  const unsignedRound = page.locator('.upcoming-rounds .card').nth(1)
+  await expect(unsignedRound.getByRole('button', { name: 'Óvirkur í skráningu' })).toBeDisabled()
+
+  const requestPromise = page.waitForRequest(request =>
+    request.method() === 'DELETE' && request.url().includes('/rest/v1/signups')
+  )
+  await withdrawal.click()
+  const requestUrl = new URL((await requestPromise).url())
+  expect(requestUrl.searchParams.get('round_id')).toBe('eq.4')
+  expect(requestUrl.searchParams.get('player_id')).toBe('eq.20')
+})
+
 test('a failed signup is announced and leaves the action available to retry', async ({ page }) => {
   await mockSupabase(page, { signupFailure: true })
   await page.goto('/#rounds')
@@ -275,4 +299,47 @@ test('admin player management renders add and restore controls', async ({ page }
   const restoreRequestPromise = page.waitForRequest(request => request.url().includes('/rpc/admin_restore_player'))
   await playerPanel.getByRole('button', { name: 'Endurheimta' }).click()
   expect((await restoreRequestPromise).postDataJSON()).toEqual({ p_player_id: 99 })
+})
+
+test('new player changes trigger the dirty navigation guard', async ({ page }) => {
+  await mockSupabase(page, { adminLogin: true })
+  await page.goto('/#admin')
+  await page.getByLabel('Netfang').fill('admin@example.com')
+  await page.getByLabel('Lykilorð').fill('test-password')
+  await page.getByRole('button', { name: 'Innskrá' }).click()
+
+  const playerPanel = page.getByRole('heading', { name: 'Leikmenn & forgjöf' }).locator('..')
+  await playerPanel.locator('form').getByLabel('Nafn').fill('Óvistaður Leikmaður')
+
+  let dialogMessage = ''
+  page.once('dialog', async dialog => {
+    dialogMessage = dialog.message()
+    await dialog.dismiss()
+  })
+  await page.getByRole('button', { name: 'Skráning' }).click()
+  expect(dialogMessage).toContain('Óvistaðar breytingar')
+
+  await expect(page.getByRole('heading', { name: 'Leikmenn & forgjöf' })).toBeVisible()
+})
+
+test('player edits trigger the dirty navigation guard', async ({ page }) => {
+  await mockSupabase(page, { adminLogin: true })
+  await page.goto('/#admin')
+  await page.getByLabel('Netfang').fill('admin@example.com')
+  await page.getByLabel('Lykilorð').fill('test-password')
+  await page.getByRole('button', { name: 'Innskrá' }).click()
+
+  const firstPlayer = page.locator('.admin-list.players > li').first()
+  await firstPlayer.getByRole('button', { name: 'Breyta' }).click()
+  await firstPlayer.getByLabel('Nafn').fill('Óvistað nafn')
+
+  let dialogMessage = ''
+  page.once('dialog', async dialog => {
+    dialogMessage = dialog.message()
+    await dialog.dismiss()
+  })
+  await page.getByRole('button', { name: 'Stigatafla' }).click()
+  expect(dialogMessage).toContain('Óvistaðar breytingar')
+
+  await expect(firstPlayer.getByRole('button', { name: 'Vista', exact: true })).toBeVisible()
 })
