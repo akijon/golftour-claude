@@ -22,7 +22,7 @@ creating, editing, and removing rounds.
 | Frontend | React 19 + Vite (SPA, hash routing — `#rounds` / `#standings` / `#admin`) |
 | Database | Supabase (free tier, RLS locked down to authenticated writes) |
 | Hosting  | **Cloudflare Workers (static assets only, no worker script)** via Workers Builds, repo-connected. Was Pages; converted 2026-07-21. |
-| Auth     | Supabase Auth (email/password), admin-only. No custom API endpoints — `functions/` was removed in s11. |
+| Auth     | Supabase Auth (email/password) + database-backed admin role (`user_roles`). No custom API endpoints — `functions/` was removed in s11. |
 | Styling  | Plain CSS, single `src/index.css`. No Tailwind. |
 
 ## File map
@@ -31,17 +31,25 @@ creating, editing, and removing rounds.
 golftour-claude/
 ├── AGENTS.md              ← this file
 ├── README.md              ← human setup instructions (Icelandic)
-├── supabase-setup.sql     ← one-shot schema + RLS + seed (58 players, 5 rounds)
+├── supabase-setup.sql     ← complete fresh-install schema + RLS + RPCs + seed
 ├── migrations-001-handicap.sql ← handicap/golfbox_id columns for existing DBs
+├── migrations-002-admin.sql ← roles, settings, soft delete, audit log
+├── migrations-003-player-crud.sql ← audited player create/update RPCs
+├── migrations-004-admin-policy-hardening.sql ← admin-only round/score writes
 ├── wrangler.jsonc         ← Workers static-assets config (no main worker script)
-├── index.html             ← lang="is", theme #0e3b2e
+├── index.html             ← lang="is", theme #7c231e
 ├── .env.example           ← VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
-├── public/                ← favicon.svg, icons.svg (served as-is)
+├── public/                ← favicon.svg, icons.svg, brand assets (served as-is)
 └── src/
     ├── main.jsx           ← entry
-    ├── App.jsx            ← Shell, RoundsView, AdminView, AdminGate, hash routing, toast
+    ├── App.jsx            ← Shell, AdminView/AdminGate, hash routing, toast
+    ├── RoundsView.jsx     ← signup cards, rosters, grouping display
+    ├── GroupingsAdmin.jsx ← manual grouping editor
+    ├── grouping.js        ← automatic/manual grouping calculations
     ├── PlayerCombobox.jsx ← searchable player selector (filter + keyboard nav)
-    ├── PlayersAdmin.jsx   ← handicap/golfbox_id inline editing
+    ├── PlayersAdmin.jsx   ← audited player CRUD and handicap editing
+    ├── SettingsAdmin.jsx  ← admin-managed public application settings
+    ├── adminApi.js        ← admin role checks and audited RPC wrappers
     ├── ScoresAdmin.jsx    ← per-round score entry (signed-up players first)
     ├── Standings.jsx      ← tournament standings (best-3-of-5, leader crown)
     ├── supabase.js        ← client, exports { supabase, configured }
@@ -52,19 +60,23 @@ golftour-claude/
 
 ## Database schema (current, deployed via supabase-setup.sql)
 
-- `players(id, name unique, position, active, created_at)`
+- `players(id, name unique, position, active, deleted_at, deleted_by, handicap, golfbox_id, created_at)`
 - `rounds(id, title, course, round_date, tee_time, max_players nullable, notes, created_at)`
 - `signups(id, round_id fk cascade, player_id fk cascade, created_at, unique(round_id, player_id))`
 - `scores(id, round_id fk, player_id fk, points int >=0, position int null, unique(round_id, player_id))`
   Tournament rule: winner = highest SUM OF BEST 3 round scores (of 5), Stableford.
   Tiebreak in UI: best single round. Migration: scores_table_and_round2_hella.
-- RLS (since migration auth_rls_lockdown, 2026-07-21):
+- `user_roles(user_id, role)` — the only admin flag. `is_admin()` (SECURITY DEFINER)
+  reads it; writes are gated to authenticated users with an admin row.
+- `app_settings(key, value jsonb)` — public-read/admin-write key/value store.
+- `audit_log` — append-only audit trail written inside the admin RPCs.
+- RLS (migrations 002 + 004):
   READS public on all tables. signups INSERT+DELETE public (self-signup by
-  design, no accounts). players/rounds/scores WRITES require Supabase Auth
-  (role authenticated). Admin login = email/password user created in
-  Supabase Dashboard -> Authentication. IMPORTANT: public signups must be
-  DISABLED in Supabase Auth settings, else anyone can register and gain
-  write access.
+  design, no accounts). players/rounds/scores/settings WRITES require an
+  authenticated user explicitly listed as `admin` in `user_roles`; there is no
+  broad authenticated-write path. Admin login = email/password user created in
+  Supabase Dashboard -> Authentication, then granted the admin row. Public
+  signups should remain disabled in Supabase Auth.
 
 ## ✅ Schema change DONE (2026-07-21)
 
@@ -141,9 +153,10 @@ credentials.
 
 ## Deploy recap (current state — live in production)
 
-Supabase: schema is deployed (`supabase-setup.sql` + `migrations-001-handicap.sql`
-both applied). Admin writes require Supabase Auth (email/password user created
-in Dashboard -> Authentication); public sign-ups must stay disabled there.
+Supabase: existing deployments require migrations 001–004 in order. Fresh
+installs use the consolidated `supabase-setup.sql` (which already contains the
+001–004 schema). Admin writes require both Supabase Auth login AND an `admin`
+row in `user_roles`; public sign-ups must stay disabled in Supabase Auth.
 
 Cloudflare Workers (static assets only, config-as-code in `wrangler.jsonc`,
 repo-connected via Workers Builds):
@@ -162,10 +175,25 @@ integration, see the Session log below.
 ## Open items
 
 - Consider: further lock down admin route if the link leaks (currently gated
-  by Supabase Auth login, which is sufficient today).
+  by Supabase Auth plus the database-backed admin role).
 
 ## Session log
 
+- **2026-08-25 (s15):** Access + release hardening.
+  - Fixed WCAG contrast regression from the logo rebrand: `--flag-dark`
+    `#b8942e` → `#795d12` (tee-time text 2.82:1 → 6.09:1).
+  - Real admin authorization: `AdminGate` now requires an `admin` row in
+    `user_roles` (via `fetchIsAdmin()`); authenticated non-admins see an
+    access-denied panel. Previously any Supabase session could open admin.
+  - Added `migrations-004-admin-policy-hardening.sql` — replaced the legacy
+    authenticated write policies on `rounds`/`scores` with `is_admin()`
+    policies (migration 002 only covered players). Applied to production.
+  - Consolidated migrations 002–004 into `supabase-setup.sql` so a documented
+    fresh install is complete and secure again.
+  - Tests: `tests/schema.spec.js` (fresh-install completeness, admin-only
+    round/score writes) + a non-admin-denied UI test. Full suite 35/35 green.
+  - Docs: AGENTS.md + README updated for the admin-role auth model.
+  - Pushed `main` to origin → Workers Builds production deploy.
 - **2026-08-15 (s13):** UX heuristic evaluation (Nielsen/Krug). Audited all 3
   views, scored 7/10 (no severity-3+ issues; 5 failed diagnostic rows).
   Implemented 10 fixes in PR #1 (merged):
