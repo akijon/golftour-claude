@@ -45,7 +45,7 @@ const scores = rounds.slice(0, 3).flatMap(round =>
   })),
 )
 
-async function mockSupabase(page, { adminLogin = false, signupFailure = false, withdrawalFailure = false, customRounds = null, customSignups = null, groups = [] } = {}) {
+async function mockSupabase(page, { adminLogin = false, adminRole = adminLogin, signupFailure = false, withdrawalFailure = false, customRounds = null, customSignups = null, groups = [] } = {}) {
   await page.route(/http:\/\/(localhost|127\.0\.0\.1):9999\/.*/, async route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -59,7 +59,8 @@ async function mockSupabase(page, { adminLogin = false, signupFailure = false, w
     }
 
     let body = []
-    if (url.pathname.includes('/rest/v1/players')) {
+    if (url.pathname.includes('/rest/v1/user_roles')) body = adminRole ? [{ role: 'admin' }] : []
+    else if (url.pathname.includes('/rest/v1/players')) {
       const publicRoster = url.searchParams.get('active') === 'eq.true' || url.searchParams.get('deleted_at') === 'is.null'
       body = publicRoster ? players : [...players, deletedPlayer]
     }
@@ -371,6 +372,18 @@ test('admin player management renders add and restore controls', async ({ page }
   const restoreRequestPromise = page.waitForRequest(request => request.url().includes('/rpc/admin_restore_player'))
   await playerPanel.getByRole('button', { name: 'Endurheimta' }).click()
   expect((await restoreRequestPromise).postDataJSON()).toEqual({ p_player_id: 99 })
+})
+
+test('authenticated non-admin users are denied access to admin controls', async ({ page }) => {
+  await mockSupabase(page, { adminLogin: true, adminRole: false })
+  await page.goto('/#admin')
+
+  await page.getByLabel('Netfang').fill('member@example.com')
+  await page.getByLabel('Lykilorð').fill('test-password')
+  await page.getByRole('button', { name: 'Innskrá' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Aðgangur bannaður' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Leikmenn & forgjöf' })).toHaveCount(0)
 })
 
 test('new player changes trigger the dirty navigation guard', async ({ page }) => {

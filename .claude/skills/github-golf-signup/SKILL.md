@@ -47,7 +47,7 @@ Prefer fine-grained PAT scoped to this single repo, contents:read/write.
 
 ## Deploy linkage
 
-Cloudflare Pages auto-deploys from `main` once connected. A push to `main`
+Cloudflare Workers Builds auto-deploys from `main` once connected. A push to `main`
 is therefore a production deploy — build must pass `npm run build` locally
 first, every time.
 

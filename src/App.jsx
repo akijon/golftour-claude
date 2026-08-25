@@ -8,6 +8,7 @@ import RoundsView from './RoundsView'
 import { fmtDate, fmtTime, friendlyError } from './utils'
 import { groupingsFromStore } from './grouping'
 import GroupingsAdmin from './GroupingsAdmin'
+import { fetchIsAdmin } from './adminApi'
 
 const VIEWS = ['rounds', 'standings', 'admin']
 const NAV_LABELS = { rounds: 'Skráning', standings: 'Stigatafla', admin: 'Stjórnun' }
@@ -258,6 +259,7 @@ function AdminView({ rounds, signups, players, scores, groupings, reload, dirtyR
 
 function AdminGate({ children, dirtyRef }) {
   const [session, setSession] = useState(undefined)
+  const [isAdmin, setIsAdmin] = useState(undefined)
   const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
@@ -273,6 +275,17 @@ function AdminGate({ children, dirtyRef }) {
     return () => sub.subscription.unsubscribe()
   }, [dirtyRef])
 
+  useEffect(() => {
+    let active = true
+    setIsAdmin(session ? undefined : false)
+    if (session) {
+      fetchIsAdmin()
+        .then(allowed => { if (active) setIsAdmin(allowed) })
+        .catch(() => { if (active) setIsAdmin(false) })
+    }
+    return () => { active = false }
+  }, [session])
+
   async function login() {
     setBusy(true); setMsg('')
     const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
@@ -280,8 +293,8 @@ function AdminGate({ children, dirtyRef }) {
     if (error) setMsg(friendlyError(error))
   }
 
-  if (session === undefined) return <p className="status">Athugar aðgang…</p>
-  if (session) {
+  if (session === undefined || (session && isAdmin === undefined)) return <p className="status">Athugar aðgang…</p>
+  if (session && isAdmin) {
     return (
       <>
         <div className="admin-bar">
@@ -290,6 +303,15 @@ function AdminGate({ children, dirtyRef }) {
         </div>
         {children}
       </>
+    )
+  }
+  if (session) {
+    return (
+      <section className="panel gate">
+        <h2 className="panel-title">Aðgangur bannaður</h2>
+        <p>Notandinn hefur ekki stjórnandaréttindi.</p>
+        <button className="link" onClick={() => supabase.auth.signOut()}>Útskrá</button>
+      </section>
     )
   }
   return (
