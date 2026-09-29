@@ -36,6 +36,7 @@ golftour-claude/
 ├── migrations-002-admin.sql ← roles, settings, soft delete, audit log
 ├── migrations-003-player-crud.sql ← audited player create/update RPCs
 ├── migrations-004-admin-policy-hardening.sql ← admin-only round/score writes
+├── migrations-005-signup-hardening.sql ← signup RPCs, hide soft-deleted players
 ├── wrangler.jsonc         ← Workers static-assets config (no main worker script)
 ├── index.html             ← lang="is", theme #7c231e
 ├── .env.example           ← VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
@@ -70,9 +71,12 @@ golftour-claude/
   reads it; writes are gated to authenticated users with an admin row.
 - `app_settings(key, value jsonb)` — public-read/admin-write key/value store.
 - `audit_log` — append-only audit trail written inside the admin RPCs.
-- RLS (migrations 002 + 004):
-  READS public on all tables. signups INSERT+DELETE public (self-signup by
-  design, no accounts). players/rounds/scores/settings WRITES require an
+- RLS (migrations 002 + 004 + 005):
+  READS public on all tables, except soft-deleted players (admins only).
+  signups have no write policies: self-signup (no accounts, by design) goes
+  through `signup_player` / `unsignup_player` RPCs granted to anon, which
+  enforce active/non-deleted player, future round and `max_players`, touch one
+  row per call, and write `audit_log`. players/rounds/scores/settings WRITES require an
   authenticated user explicitly listed as `admin` in `user_roles`; there is no
   broad authenticated-write path. Admin login = email/password user created in
   Supabase Dashboard -> Authentication, then granted the admin row. Public
@@ -153,9 +157,10 @@ credentials.
 
 ## Deploy recap (current state — live in production)
 
-Supabase: existing deployments require migrations 001–004 in order. Fresh
+Supabase: existing deployments require migrations 001–005 in order. Fresh
 installs use the consolidated `supabase-setup.sql` (which already contains the
-001–004 schema). Admin writes require both Supabase Auth login AND an `admin`
+001–005 schema). Migration 005 must be applied BEFORE deploying the matching
+frontend (the SPA calls the signup RPCs). Admin writes require both Supabase Auth login AND an `admin`
 row in `user_roles`; public sign-ups must stay disabled in Supabase Auth.
 
 Cloudflare Workers (static assets only, config-as-code in `wrangler.jsonc`,

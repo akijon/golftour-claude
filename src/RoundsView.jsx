@@ -128,9 +128,11 @@ export default function RoundsView({ players, rounds, signups, groupings, me, se
     setActionError('')
 
     try {
-      const result = signedUp
-        ? await supabase.from('signups').delete().eq('round_id', round.id).eq('player_id', selectedMe)
-        : await supabase.from('signups').insert({ round_id: round.id, player_id: Number(selectedMe) })
+      // RPCs enforce active player, future round and capacity server-side.
+      const result = await supabase.rpc(signedUp ? 'unsignup_player' : 'signup_player', {
+        p_round_id: round.id,
+        p_player_id: Number(selectedMe),
+      })
 
       if (result.error) throw result.error
 

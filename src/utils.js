@@ -28,6 +28,12 @@ export function friendlyError(err) {
     return 'Þú hefur ekki aðgang að þessari aðgerð.'
   if (msg.includes('rate limit') || msg.includes('too many'))
     return 'Of margar tilraunir. Reyndu aftur eftir stutta stund.'
+  if (msg.includes('round is full'))
+    return 'Hringurinn er fullskipaður.'
+  if (msg.includes('round has already been played'))
+    return 'Þessi hringur er liðinn.'
+  if (msg.includes('player cannot sign up'))
+    return 'Þessi leikmaður getur ekki skráð sig.'
   if (msg.includes('player name is required'))
     return 'Nafn leikmanns er nauðsynlegt.'
   if (msg.includes('handicap must be a number') || msg.includes('invalid input syntax for type numeric'))

@@ -34,3 +34,23 @@ test('current and fresh schemas restrict round and score writes to admins', () =
     expect(sql).toContain('using (is_admin()) with check (is_admin())')
   }
 })
+
+test('current and fresh schemas route signups through validated RPCs', () => {
+  const migration = read('migrations-005-signup-hardening.sql').toLowerCase()
+  const setup = read('supabase-setup.sql').toLowerCase()
+
+  expect(setup).not.toContain('create policy "public insert signups"')
+  expect(setup).not.toContain('create policy "public delete signups"')
+
+  for (const sql of [migration, setup]) {
+    for (const legacy of ['public write players', 'public write rounds', 'public write signups',
+      'public insert signups', 'public delete signups']) {
+      expect(sql).toContain(`drop policy if exists "${legacy}"`)
+    }
+    expect(sql).toContain('create or replace function signup_player')
+    expect(sql).toContain('create or replace function unsignup_player')
+    expect(sql).toContain("raise exception 'round is full'")
+    expect(sql).toContain('where id = p_player_id and active and deleted_at is null')
+    expect(sql).toContain('for select using (deleted_at is null)')
+  }
+})

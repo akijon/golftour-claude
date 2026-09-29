@@ -51,9 +51,10 @@ async function mockSupabase(page, { adminLogin = false, adminRole = adminLogin, 
     const url = new URL(request.url())
     const headers = { 'access-control-allow-origin': '*' }
 
-    const signupMutation = url.pathname.includes('/rest/v1/signups')
-    if (signupMutation && ((request.method() === 'POST' && signupFailure) || (request.method() === 'DELETE' && withdrawalFailure))) {
-      const message = request.method() === 'POST' ? 'duplicate key' : 'mutation failed'
+    const signup = url.pathname.endsWith('/rpc/signup_player')
+    const withdrawal = url.pathname.endsWith('/rpc/unsignup_player')
+    if ((signup && signupFailure) || (withdrawal && withdrawalFailure)) {
+      const message = signup ? 'duplicate key' : 'mutation failed'
       await route.fulfill({ status: 409, contentType: 'application/json', headers, body: JSON.stringify({ message }) })
       return
     }
@@ -226,13 +227,9 @@ test('inactive selected players can withdraw but cannot create new signups', asy
   const unsignedRound = page.locator('.upcoming-rounds .card').nth(1)
   await expect(unsignedRound.getByRole('button', { name: 'Óvirkur í skráningu' })).toBeDisabled()
 
-  const requestPromise = page.waitForRequest(request =>
-    request.method() === 'DELETE' && request.url().includes('/rest/v1/signups')
-  )
+  const requestPromise = page.waitForRequest(request => request.url().includes('/rpc/unsignup_player'))
   await withdrawal.click()
-  const requestUrl = new URL((await requestPromise).url())
-  expect(requestUrl.searchParams.get('round_id')).toBe('eq.4')
-  expect(requestUrl.searchParams.get('player_id')).toBe('eq.20')
+  expect((await requestPromise).postDataJSON()).toEqual({ p_round_id: 4, p_player_id: 20 })
 })
 
 test('a failed signup is announced and leaves the action available to retry', async ({ page }) => {
