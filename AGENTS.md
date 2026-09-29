@@ -184,6 +184,29 @@ integration, see the Session log below.
 
 ## Session log
 
+- **2026-09-29 (s16):** Security audit + signup hardening.
+  - Source-level security audit of schema/RLS, client, config and git history.
+    Clean: admin RPCs + `is_admin()`, no XSS sinks, no secrets in history.
+  - Finding (medium): `signups` insert/delete policies were `using (true)` for
+    anon — one `DELETE /signups?id=gt.0` erased every signup untraced, and
+    inserts skipped the UI-only rules (active player, future round,
+    `max_players`). Finding (low): public `players` read exposed soft-deleted
+    rows incl. `deleted_by` (admin auth uid).
+  - Added `migrations-005-signup-hardening.sql`: anon signup write policies
+    removed; `signup_player` / `unsignup_player` SECURITY DEFINER RPCs (granted
+    to anon) enforce active/non-deleted player, future round, capacity (round
+    row locked), one row per call, and write `audit_log`. Public players read
+    now `deleted_at is null`. Also drops legacy `"public write *"` policies
+    defensively. Consolidated into `supabase-setup.sql`.
+  - Production check before applying: `pg_policies` had no legacy
+    `public write *` policies. Migration applied via Supabase MCP; verified as
+    anon in a rolled-back transaction (signup/unsignup OK; full/past rejected;
+    bulk delete 0 rows; direct insert blocked by RLS; 0 deleted players visible).
+  - `RoundsView.jsx` calls the RPCs; `friendlyError()` maps the new errors.
+    Tests: schema test for 005 + UX mocks updated. Suite 36/36 green.
+  - Pushed `2c3477f` → Workers Builds deploy succeeded. Live signup not yet
+    exercised (no upcoming rounds) — sign up/withdraw once when the next round
+    is created.
 - **2026-08-25 (s15):** Access + release hardening.
   - Fixed WCAG contrast regression from the logo rebrand: `--flag-dark`
     `#b8942e` → `#795d12` (tee-time text 2.82:1 → 6.09:1).
