@@ -66,7 +66,7 @@ async function mockSupabase(page, { adminLogin = false, adminRole = adminLogin, 
       body = publicRoster ? players : [...players, deletedPlayer]
     }
     else if (url.pathname.includes('/rest/v1/app_settings')) body = groups
-    else if (url.pathname.includes('/rest/v1/rounds')) body = customRounds || rounds
+    else if (url.pathname.includes('/rest/v1/rounds')) body = (customRounds || rounds).map(round => ({ season: 2026, ...round }))
     else if (url.pathname.includes('/rest/v1/signups')) body = customSignups || signups
     else if (url.pathname.includes('/rest/v1/scores')) body = scores
     else if (url.pathname.includes('/auth/v1/token') && adminLogin) {
@@ -594,4 +594,30 @@ test('switching rounds with unsaved grouping edits confirms before discarding', 
   // Declining keeps the admin on the original round with edits intact.
   await expect(page.getByLabel('Veldu hring fyrir hópa')).toHaveValue('10')
   await expect(page.locator('.group-card').nth(0).getByLabel('Rástími hóps 1')).toHaveValue('12:00')
+})
+
+test('newest season is open for signups and older seasons stay viewable in standings', async ({ page }) => {
+  const rounds2027 = Array.from({ length: 5 }, (_, i) => ({
+    id: 20 + i, season: 2027, title: `Hringur ${i + 1}`, course: '', round_date: null, tee_time: null, max_players: null, notes: '',
+  }))
+  await mockSupabase(page, { customRounds: [...rounds, ...rounds2027], customSignups: [] })
+  await page.goto('/#rounds')
+
+  await expect(page.getByText('Sumarið 2027 · 5 hringir')).toBeVisible()
+  const cards = page.locator('.upcoming-rounds .card')
+  await expect(cards).toHaveCount(5)
+  await expect(cards.first()).toContainText('Dagsetning óákveðin')
+  await expect(cards.first()).toContainText('Völlur óákveðinn')
+  await expect(page.getByText('Opnunarhringur')).toHaveCount(0)
+  await expect(page.locator('.past-rounds')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Stigatafla' }).click()
+  await expect(page.getByRole('heading', { name: 'Stigatafla — Eldtúrinn 2027' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: '2027' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByText('Engin stig skráð fyrir 2027 enn.')).toBeVisible()
+
+  await page.getByRole('tab', { name: '2026' }).click()
+  await expect(page.getByRole('heading', { name: 'Stigatafla — Eldtúrinn 2026' })).toBeVisible()
+  await expect(page.locator('.standings-desktop tbody tr').first()).toContainText('Leikmaður 4')
+  await expect(page.locator('.standings-desktop thead th.rnd')).toHaveCount(5)
 })

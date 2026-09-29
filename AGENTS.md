@@ -37,6 +37,7 @@ golftour-claude/
 ├── migrations-003-player-crud.sql ← audited player create/update RPCs
 ├── migrations-004-admin-policy-hardening.sql ← admin-only round/score writes
 ├── migrations-005-signup-hardening.sql ← signup RPCs, hide soft-deleted players
+├── migrations-006-seasons.sql ← rounds.season, nullable round_date, 2027 rounds
 ├── wrangler.jsonc         ← Workers static-assets config (no main worker script)
 ├── index.html             ← lang="is", theme #7c231e
 ├── .env.example           ← VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
@@ -62,7 +63,9 @@ golftour-claude/
 ## Database schema (current, deployed via supabase-setup.sql)
 
 - `players(id, name unique, position, active, deleted_at, deleted_by, handicap, golfbox_id, created_at)`
-- `rounds(id, title, course, round_date, tee_time, max_players nullable, notes, created_at)`
+- `rounds(id, season int, title, course, round_date nullable, tee_time, max_players nullable, notes, created_at)`
+  — newest season = signup view + header; older seasons viewable as tabs in
+  Stigatafla. Null round_date = undecided (never past); empty course = undecided.
 - `signups(id, round_id fk cascade, player_id fk cascade, created_at, unique(round_id, player_id))`
 - `scores(id, round_id fk, player_id fk, points int >=0, position int null, unique(round_id, player_id))`
   Tournament rule: winner = highest SUM OF BEST 3 round scores (of 5), Stableford.
@@ -157,9 +160,9 @@ credentials.
 
 ## Deploy recap (current state — live in production)
 
-Supabase: existing deployments require migrations 001–005 in order. Fresh
+Supabase: existing deployments require migrations 001–006 in order. Fresh
 installs use the consolidated `supabase-setup.sql` (which already contains the
-001–005 schema). Migration 005 must be applied BEFORE deploying the matching
+001–006 schema). Migration 005 must be applied BEFORE deploying the matching
 frontend (the SPA calls the signup RPCs). Admin writes require both Supabase Auth login AND an `admin`
 row in `user_roles`; public sign-ups must stay disabled in Supabase Auth.
 

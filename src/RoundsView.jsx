@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import PlayerCombobox from './PlayerCombobox'
 import { supabase } from './supabase'
-import { fmtDate, fmtHcp, fmtTime, friendlyError, isPast } from './utils'
+import { fmtCourse, fmtDate, fmtHcp, fmtTime, friendlyError, isPast } from './utils'
 import { resolveGrouping } from './grouping'
 
 function Roster({ list, players, maxPlayers, round, override }) {
@@ -87,7 +87,7 @@ function RoundCard({ round, number, players, signups, override, me, canSignup, b
         <span className="round-no">{number}</span>
         <div className="card-title">
           <h2>{round.title}</h2>
-          <p className="course">{round.course}</p>
+          <p className="course">{fmtCourse(round.course)}</p>
         </div>
         <div className="card-when">
           <span className="date">{fmtDate(round.round_date)}</span>

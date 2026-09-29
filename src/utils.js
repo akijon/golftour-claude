@@ -4,7 +4,7 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'maí', 'jún', 'júl', 'ágú', 'se
 const DAYS = ['Sunnudagur', 'Mánudagur', 'Þriðjudagur', 'Miðvikudagur', 'Fimmtudagur', 'Föstudagur', 'Laugardagur']
 
 export function fmtDate(date) {
-  if (!date) return ''
+  if (!date) return 'Dagsetning óákveðin'
   const value = new Date(`${date}T00:00:00`)
   return `${DAYS[value.getDay()]} ${value.getDate()}. ${MONTHS[value.getMonth()]}`
 }
@@ -13,7 +13,9 @@ export function fmtTime(time) {
   return time ? time.slice(0, 5) : ''
 }
 
+// Rounds without a decided date are never past.
 export function isPast(date) {
+  if (!date) return false
   return new Date(`${date}T23:59:59`) < new Date()
 }
 
@@ -43,6 +45,24 @@ export function friendlyError(err) {
   if (msg.includes('not found') || msg.includes('does not exist'))
     return 'Fann ekki gögnin sem beðið var um.'
   return 'Óvænt villa kom upp.'
+}
+
+export function fmtCourse(course) {
+  return course || 'Völlur óákveðinn'
+}
+
+// Seasons present in the rounds list, newest first.
+export function seasonsOf(rounds) {
+  return [...new Set(rounds.map(round => round.season))].sort((a, b) => b - a)
+}
+
+// 1-based position of a round within its own season (rounds arrive sorted).
+export function roundNumber(round, rounds) {
+  return rounds.filter(r => r.season === round.season).findIndex(r => r.id === round.id) + 1
+}
+
+export function roundLabel(round, rounds) {
+  return `${round.season} · H${roundNumber(round, rounds)} · ${round.title} · ${fmtCourse(round.course)}`
 }
 
 export function fmtHcp(h) {

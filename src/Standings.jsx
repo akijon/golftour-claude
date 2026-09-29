@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { fmtCourse } from './utils'
 
 // Tournament rule: total = sum of each player's BEST 3 round scores (of 5).
 const BEST_N = 3
@@ -85,7 +86,7 @@ function MobileStandings({ rows, rounds }) {
                 <div key={round.id} className={row.countsFor[round.id] ? 'counted' : ''}>
                   <dt>
                     {round.title}
-                    <small>{round.course}</small>
+                    <small>{fmtCourse(round.course)}</small>
                   </dt>
                   <dd>
                     {row.byRound[round.id] ?? '—'}
@@ -101,20 +102,37 @@ function MobileStandings({ rows, rounds }) {
   )
 }
 
-export default function Standings({ players, rounds, scores }) {
-  const rows = useMemo(() => scoreRows(players, scores), [players, scores])
-
-  if (rows.length === 0) {
-    return <section className="panel"><h2 className="panel-title">Stigatafla</h2>
-      <p className="empty">Engin stig skráð enn. Skráðu stig á „Stjórnun“ síðunni.</p></section>
-  }
+export default function Standings({ players, rounds, scores, seasons }) {
+  const [season, setSeason] = useState(seasons[0] ?? new Date().getFullYear())
+  const seasonRounds = useMemo(() => rounds.filter(round => round.season === season), [rounds, season])
+  // Scores are filtered to the season's rounds so best-3 totals never mix years.
+  const rows = useMemo(() => {
+    const roundIds = new Set(seasonRounds.map(round => round.id))
+    return scoreRows(players, scores.filter(score => roundIds.has(score.round_id)))
+  }, [players, scores, seasonRounds])
 
   return (
     <section className="panel standings">
-      <h2 className="panel-title">Stigatafla — Eldtúrinn 2026</h2>
-      <p className="rule-note">Samtals = besti árangur úr {BEST_N} hringjum af {rounds.length}. Talin stig eru <span className="counted-demo">merkt</span>.</p>
-      <DesktopStandings rows={rows} rounds={rounds} />
-      <MobileStandings rows={rows} rounds={rounds} />
+      <h2 className="panel-title">Stigatafla — Eldtúrinn {season}</h2>
+      {seasons.length > 1 && (
+        <div className="season-tabs" role="tablist" aria-label="Tímabil">
+          {seasons.map(s => (
+            <button key={s} role="tab" aria-selected={s === season}
+              className={s === season ? 'season-tab active' : 'season-tab'} onClick={() => setSeason(s)}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+      {rows.length === 0 ? (
+        <p className="empty">Engin stig skráð fyrir {season} enn.</p>
+      ) : (
+        <>
+          <p className="rule-note">Samtals = besti árangur úr {BEST_N} hringjum af {seasonRounds.length}. Talin stig eru <span className="counted-demo">merkt</span>.</p>
+          <DesktopStandings rows={rows} rounds={seasonRounds} />
+          <MobileStandings rows={rows} rounds={seasonRounds} />
+        </>
+      )}
     </section>
   )
 }

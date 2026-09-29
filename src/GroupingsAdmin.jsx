@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
-import { fmtHcp, friendlyError } from './utils'
+import { fmtHcp, friendlyError, roundLabel } from './utils'
 import { addMinutesToTime, buildDefaultOverride, overrideKey, validateOverride, OVERRIDE_VERSION } from './grouping'
 
 /**
@@ -151,7 +151,7 @@ export default function GroupingsAdmin({ rounds, signups, players, groupings, re
       <div className="sync-row">
         <select value={roundId} onChange={e => open(e.target.value)} aria-label="Veldu hring fyrir hópa">
           <option value="">— Veldu hring til að stilla hópa —</option>
-          {rounds.map((r, i) => <option key={r.id} value={r.id}>{`H${i + 1} · ${r.title} · ${r.course}`}</option>)}
+          {rounds.map(r => <option key={r.id} value={r.id}>{roundLabel(r, rounds)}</option>)}
         </select>
       </div>
 

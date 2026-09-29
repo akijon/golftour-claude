@@ -54,3 +54,15 @@ test('current and fresh schemas route signups through validated RPCs', () => {
     expect(sql).toContain('for select using (deleted_at is null)')
   }
 })
+
+test('current and fresh schemas support seasons with undecided round dates', () => {
+  const migration = read('migrations-006-seasons.sql').toLowerCase()
+  const setup = read('supabase-setup.sql').toLowerCase()
+
+  for (const sql of [migration, setup]) {
+    expect(sql).toContain('alter table rounds add column if not exists season int')
+    expect(sql).toContain('alter table rounds alter column season set not null')
+    expect(sql).toContain('alter table rounds alter column round_date drop not null')
+    expect(sql).toContain('where not exists (select 1 from rounds where season = 2027)')
+  }
+})

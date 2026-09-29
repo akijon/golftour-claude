@@ -5,7 +5,7 @@ import SettingsAdmin from './SettingsAdmin'
 import ScoresAdmin from './ScoresAdmin'
 import Standings from './Standings'
 import RoundsView from './RoundsView'
-import { fmtDate, fmtTime, friendlyError } from './utils'
+import { fmtCourse, fmtDate, fmtTime, friendlyError, seasonsOf } from './utils'
 import { groupingsFromStore } from './grouping'
 import GroupingsAdmin from './GroupingsAdmin'
 import { fetchIsAdmin } from './adminApi'
@@ -37,7 +37,7 @@ export default function App() {
     setError('')
     const [p, r, s, sc, g] = await Promise.all([
       supabase.from('players').select('*').is('deleted_at', null).order('name'),
-      supabase.from('rounds').select('*').order('round_date'),
+      supabase.from('rounds').select('*').order('season').order('round_date', { nullsFirst: false }).order('id'),
       supabase.from('signups').select('*'),
       supabase.from('scores').select('*'),
       supabase.from('app_settings').select('key,value'),
@@ -101,29 +101,35 @@ export default function App() {
     setTimeout(() => setToast(''), 3000)
   }
 
+  // The newest season is the one open for signups; older seasons stay
+  // viewable in the standings.
+  const seasons = seasonsOf(rounds)
+  const currentSeason = seasons[0] ?? new Date().getFullYear()
+  const seasonRounds = rounds.filter(round => round.season === currentSeason)
+
   if (!configured) return <Shell view={view} setView={navigate}><SetupNotice /></Shell>
   if (loading) return <Shell view={view} setView={navigate}><p className="status">Sæki gögn…</p></Shell>
 
   return (
-    <Shell view={view} setView={navigate}>
+    <Shell view={view} setView={navigate} season={currentSeason} roundCount={seasonRounds.length}>
       {toast && <div className="toast" role="status">{toast}</div>}
       {error && <p className="status error">{error} <button className="link" onClick={load}>Reyna aftur</button></p>}
       {view === 'rounds' && (
-        <RoundsView players={players} rounds={rounds} signups={signups} groupings={groupings} me={me} setMe={setMe} reload={load} onToast={showToast} />
+        <RoundsView players={players} rounds={seasonRounds} signups={signups} groupings={groupings} me={me} setMe={setMe} reload={load} onToast={showToast} />
       )}
       {view === 'standings' && (
-        <Standings players={players} rounds={rounds} scores={scores} />
+        <Standings players={players} rounds={rounds} scores={scores} seasons={seasons} />
       )}
       {view === 'admin' && (
         <AdminGate dirtyRef={adminDirtyRef}>
-          <AdminView rounds={rounds} signups={signups} players={players} scores={scores} groupings={groupings} reload={load} dirtyRef={adminDirtyRef} onToast={showToast} />
+          <AdminView rounds={rounds} currentSeason={currentSeason} signups={signups} players={players} scores={scores} groupings={groupings} reload={load} dirtyRef={adminDirtyRef} onToast={showToast} />
         </AdminGate>
       )}
     </Shell>
   )
 }
 
-function Shell({ view, setView, children }) {
+function Shell({ view, setView, season, roundCount, children }) {
   return (
     <div className="shell">
       <header className="masthead">
@@ -132,7 +138,7 @@ function Shell({ view, setView, children }) {
             <img className="brand-crest" src="/eldturin-crest.png" alt="Eldtúrinn merki" />
             <div>
               <h1>Golfhópur SHS</h1>
-              <p className="season">Sumarið 2026 · 5 hringir</p>
+              {season && <p className="season">Sumarið {season} · {roundCount} hringir</p>}
             </div>
           </div>
           <nav className="nav">
@@ -152,10 +158,11 @@ function Shell({ view, setView, children }) {
 
 /* ---------------- Admin view: new / edit / remove rounds ---------------- */
 
-const EMPTY = { title: '', course: '', round_date: '', tee_time: '', max_players: '', notes: '' }
+const EMPTY = { season: '', title: '', course: '', round_date: '', tee_time: '', max_players: '', notes: '' }
 
-function AdminView({ rounds, signups, players, scores, groupings, reload, dirtyRef, onToast }) {
-  const [form, setForm] = useState(EMPTY)
+function AdminView({ rounds, currentSeason, signups, players, scores, groupings, reload, dirtyRef, onToast }) {
+  const empty = { ...EMPTY, season: String(currentSeason) }
+  const [form, setForm] = useState(empty)
   const [editing, setEditing] = useState(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -165,7 +172,7 @@ function AdminView({ rounds, signups, players, scores, groupings, reload, dirtyR
   function startEdit(r) {
     setEditing(r.id)
     setForm({
-      title: r.title, course: r.course, round_date: r.round_date,
+      season: String(r.season), title: r.title, course: r.course, round_date: r.round_date ?? '',
       tee_time: r.tee_time ? r.tee_time.slice(0, 5) : '',
       max_players: r.max_players ?? '', notes: r.notes,
     })
@@ -173,15 +180,17 @@ function AdminView({ rounds, signups, players, scores, groupings, reload, dirtyR
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function cancel() { setEditing(null); setForm(EMPTY); setMsg(''); dirtyRef.current.delete('round') }
+  function cancel() { setEditing(null); setForm(empty); setMsg(''); dirtyRef.current.delete('round') }
 
   async function save() {
-    if (!form.title.trim() || !form.round_date) { setMsg('Titill og dagsetning eru nauðsynleg.'); return }
+    const season = Number(form.season)
+    if (!form.title.trim() || !Number.isInteger(season) || season < 2000) { setMsg('Titill og tímabil eru nauðsynleg.'); return }
     setBusy(true); setMsg('')
     const row = {
+      season,
       title: form.title.trim(),
       course: form.course.trim(),
-      round_date: form.round_date,
+      round_date: form.round_date || null,
       tee_time: form.tee_time || null,
       max_players: form.max_players ? Number(form.max_players) : null,
       notes: form.notes.trim(),
@@ -212,9 +221,10 @@ function AdminView({ rounds, signups, players, scores, groupings, reload, dirtyR
       <section className="panel">
         <h2 className="panel-title">{editing ? 'Breyta hring' : 'Nýr hringur'}</h2>
         <div className="form-grid">
+          <label>Tímabil<input type="number" min="2000" value={form.season} onChange={e => set('season', e.target.value)} /></label>
           <label>Titill<input value={form.title} onChange={e => set('title', e.target.value)} placeholder="Hringur 6" /></label>
           <label>Völlur<input value={form.course} onChange={e => set('course', e.target.value)} placeholder="Grafarholt" /></label>
-          <label>Dagsetning<input type="date" value={form.round_date} onChange={e => set('round_date', e.target.value)} /></label>
+          <label>Dagsetning (má vera óákveðin)<input type="date" value={form.round_date} onChange={e => set('round_date', e.target.value)} /></label>
           <label>Rástími<input type="time" value={form.tee_time} onChange={e => set('tee_time', e.target.value)} /></label>
           <label>Hámark leikmanna<input type="number" min="1" value={form.max_players} onChange={e => set('max_players', e.target.value)} placeholder="Ótakmarkað" /></label>
           <label className="wide">Athugasemd<input value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="T.d. verðlaun, grill…" /></label>
@@ -233,8 +243,8 @@ function AdminView({ rounds, signups, players, scores, groupings, reload, dirtyR
           {rounds.map(r => (
             <li key={r.id} className={editing === r.id ? 'editing' : ''}>
               <div className="admin-info">
-                <strong>{r.title}</strong>
-                <span>{r.course}</span>
+                <strong>{r.season} · {r.title}</strong>
+                <span>{fmtCourse(r.course)}</span>
                 <span>{fmtDate(r.round_date)}{r.tee_time ? ` · ${fmtTime(r.tee_time)}` : ''}</span>
                 <span className="count">{signups.filter(s => s.round_id === r.id).length} skráð</span>
               </div>

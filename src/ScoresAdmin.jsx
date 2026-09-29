@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
-import { friendlyError } from './utils'
+import { friendlyError, roundLabel } from './utils'
 
 export default function ScoresAdmin({ players, rounds, scores, signups, reload, onToast }) {
   const [roundId, setRoundId] = useState('')
@@ -61,7 +61,7 @@ export default function ScoresAdmin({ players, rounds, scores, signups, reload, 
       <div className="sync-row">
         <select value={roundId} onChange={e => open(e.target.value)} aria-label="Veldu hring">
           <option value="">— Veldu hring til að skrá stig —</option>
-          {rounds.map((r, i) => <option key={r.id} value={r.id}>{`H${i + 1} · ${r.title} · ${r.course}`}</option>)}
+          {rounds.map(r => <option key={r.id} value={r.id}>{roundLabel(r, rounds)}</option>)}
         </select>
       </div>
 
