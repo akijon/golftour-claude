@@ -180,6 +180,14 @@ repo-connected via Workers Builds):
 For the historical Pages→Workers migration and the removed GolfBox
 integration, see the Session log below.
 
+## Off-season pause (splash page)
+
+Set Workers Builds variable `VITE_SEASON_PAUSED=true` and redeploy: the site
+shows only `src/Splash.jsx` ("Síða tilbúin og bíður eftir að Golfsumarið
+byrjar") and never loads the app or Supabase client, so the free-tier Supabase
+project can be paused. To reopen: restore the Supabase project (wait for
+ACTIVE_HEALTHY), delete the variable, redeploy.
+
 ## Open items
 
 - Consider: further lock down admin route if the link leaks (currently gated
